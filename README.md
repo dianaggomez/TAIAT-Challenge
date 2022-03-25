@@ -7,5 +7,5 @@ To run the T-intersection env: python -m metadrive.envs.marl_envs.marl_tintersec
 
 
 ## Checklist
-Unordered Lists:
-Item 1Item 2Item 3Item 4
+* Change observation space:
+  * code(len(obs) = 12)
