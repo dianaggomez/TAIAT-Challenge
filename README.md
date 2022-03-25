@@ -8,7 +8,7 @@ To run the T-intersection env: python -m metadrive.envs.marl_envs.marl_tintersec
 
 ## Checklist
 * Change observation space:
-  *len(obs) = 12 
+  ** len(obs) = 12 
  * each space may be empty, coalition 1 vehicle, or coalition 2 vehicle
  * need position for each vehicle, may also need velocity
 * wrap the env.step() to simulate a traffic light
