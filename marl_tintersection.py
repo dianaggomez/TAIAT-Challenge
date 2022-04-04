@@ -10,6 +10,7 @@ from metadrive.component.map.pg_map import PGMap
 from metadrive.component.road_network.road import Road
 from metadrive.envs.marl_envs.marl_inout_roundabout import LidarStateObservationMARound
 from metadrive.envs.marl_envs.multi_agent_metadrive import MultiAgentMetaDrive
+from metadrive.envs.marl_envs.tinyinter import MixedIDMAgentManager 
 from metadrive.envs import MetaDriveEnv
 from metadrive.obs.observation_base import ObservationBase
 from metadrive.utils import get_np_random, Config
@@ -25,11 +26,17 @@ MATIntersectionConfig = dict(
         # -Road(TInterSection.node(1, 2, 0), TInterSection.node(1, 2, 1)),
     ],
     num_agents=12,
+    num_RL_agents = 6,
     map_config=dict(exit_length=60, lane_num=1),
     top_down_camera_initial_x=80,
     top_down_camera_initial_y=0,
     top_down_camera_initial_z=120,
-    IDM_agent = True,
+    # IDM_agent = True,
+    # Whether to remove dead vehicles immediately
+    ignore_delay_done=True,
+
+    # The target speed of IDM agents, if any
+    target_speed=10,
 )
 
 
@@ -92,11 +99,58 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
     def get_single_observation(self, vehicle_config: "Config") -> "ObservationBase":
         return LidarStateObservationMARound(vehicle_config)
-
+    
+    #################################################################################33
     def setup_engine(self):
         super(MultiAgentTIntersectionEnv, self).setup_engine()
         self.engine.update_manager("map_manager", MATIntersectionMapManager())
         self.engine.update_manager("spawn_manager", MATIntersectionSpawnManager())
+
+    def _get_reset_return(self):
+        org = super(MultiAgentTIntersectionEnv, self)._get_reset_return()
+        if self.num_RL_agents == self.num_agents:
+            return org
+
+        return self.agent_manager.filter_RL_agents(org)
+
+    def step(self, actions):
+        o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
+        if self.num_RL_agents == self.num_agents:
+            return o, r, d, i
+
+        original_done_dict = copy.deepcopy(d)
+        d = self.agent_manager.filter_RL_agents(d, original_done_dict=original_done_dict)
+        if "__all__" in d:
+            d.pop("__all__")
+        # assert len(d) == self.agent_manager.num_RL_agents, d
+        d["__all__"] = all(d.values())
+        return (
+            self.agent_manager.filter_RL_agents(o, original_done_dict=original_done_dict),
+            self.agent_manager.filter_RL_agents(r, original_done_dict=original_done_dict),
+            d,
+            self.agent_manager.filter_RL_agents(i, original_done_dict=original_done_dict),
+        )
+
+    def _preprocess_actions(self, actions):
+        if self.num_RL_agents == self.num_agents:
+            return super(MultiAgentTIntersectionEnv, self)._preprocess_actions(actions)
+
+        actions = {v_id: actions[v_id] for v_id in self.vehicles.keys() if v_id in self.agent_manager.RL_agents}
+        return actions
+
+    def __init__(self, config=None):
+        super(MultiAgentTIntersectionEnv, self).__init__(config=config)
+        self.num_RL_agents = self.config["num_RL_agents"]
+        if self.num_RL_agents == self.num_agents:  # Not using mixed traffic and only RL agents are running.
+            pass
+        else:
+            self.agent_manager = MixedIDMAgentManager(
+                init_observations=self._get_observations(),
+                init_action_space=self._get_action_space(),
+                num_RL_agents=self.num_RL_agents,
+                ignore_delay_done=self.config["ignore_delay_done"],
+                target_speed=self.config["target_speed"]
+            )
     
 
 
@@ -236,11 +290,14 @@ def _vis():
             "manual_control": True,
             "num_agents": 12,
             "delay_done": 0,
-            "agent_policy": WaymoIDMPolicy,
+            # "agent_policy": WaymoIDMPolicy,
+            "num_RL_agents" : 6,
         }
     # config.update({'IDM_agent': True,})
     env = MultiAgentTIntersectionEnv(config)
     o = env.reset()
+    print("vehicle num", len(env.engine.traffic_manager.vehicles))
+    print("RL agent num", len(o))
     #########
     total_r = 0
     ep_s = 0
