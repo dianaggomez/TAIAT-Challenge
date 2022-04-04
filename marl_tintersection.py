@@ -10,9 +10,12 @@ from metadrive.component.map.pg_map import PGMap
 from metadrive.component.road_network.road import Road
 from metadrive.envs.marl_envs.marl_inout_roundabout import LidarStateObservationMARound
 from metadrive.envs.marl_envs.multi_agent_metadrive import MultiAgentMetaDrive
+from metadrive.envs import MetaDriveEnv
 from metadrive.obs.observation_base import ObservationBase
 from metadrive.utils import get_np_random, Config
 from metadrive.component.vehicle.vehicle_type import SVehicle, XLVehicle
+from metadrive.policy.idm_policy import IDMPolicy
+from metadrive.policy.idm_policy import WaymoIDMPolicy
 
 MATIntersectionConfig = dict(
     spawn_roads=[
@@ -26,6 +29,7 @@ MATIntersectionConfig = dict(
     top_down_camera_initial_x=80,
     top_down_camera_initial_y=0,
     top_down_camera_initial_z=120,
+    IDM_agent = True,
 )
 
 
@@ -205,8 +209,13 @@ def _vis_debug_respawn():
 
 
 def _vis():
-    env = MultiAgentTIntersectionEnv(
-        {
+    # config = {"traffic_mode": "respawn", "map": "T", "traffic_density": 0.2,}
+    # if True:
+    #     config.update({"use_render": True, "manual_control": True})
+    # env = MetaDriveEnv(config)
+    # env.reset(force_seed=0)
+    ######
+    config = {
             "horizon": 100000,
             "vehicle_config": {
                 "vehicle_model": 's',
@@ -227,15 +236,20 @@ def _vis():
             "manual_control": True,
             "num_agents": 12,
             "delay_done": 0,
+            "agent_policy": WaymoIDMPolicy,
         }
-    )
+    # config.update({'IDM_agent': True,})
+    env = MultiAgentTIntersectionEnv(config)
     o = env.reset()
+    #########
     total_r = 0
     ep_s = 0
+    # print(env.engine.traffic_manager.get_policy())
     import numpy as np
-    actions = {k: [0.0, 0.0] for k in env.vehicles.keys()}
-    for k in range(12):
-        actions['agent' + str(k)] = [0.0, 1.0] # we are advancing all the vehicles with max acceleration
+    # actions = {k: [0.0, 0.0] for k in env.vehicles.keys()}
+    # for k in range(12):
+    #     actions['agent' + str(k)] = [0.0, 1.0] # we are advancing all the vehicles with max acceleration
+    #     actions = env.action_space.sample()
 
     for i in range(1, 100000):
         # actions = {k: [0.0, 1.0] for k in env.vehicles.keys()}
@@ -245,14 +259,35 @@ def _vis():
                 # actions[key][1] *= -1
 
         # print(actions)
-        
+        ################# IDM ##################
+        # vehicles = env.engine.agent_manager.get_vehicle_list()
+        # for v in vehicles:
+        #     print(v)
+        #     print(type(v))
+        #     policy = IDMPolicy(
+        #         v, random_seed=env.current_seed
+        #     )
+        #     action = policy.before_step(v, front_vehicle=None, rear_vehicle=None, current_map=env.engine.current_map)
+        #     action = policy.step(dt=0.02)
+        #     action = policy.after_step(v, front_vehicle=None, rear_vehicle=None, current_map=env.engine.current_map)
+        #     env.engine.policy_manager.register_new_policy(
+        #         IDMPolicy,
+        #         vehicle=v,
+        #         traffic_manager=env.engine.traffic_manager,
+        #         delay_time=1,
+        #         random_seed=env.current_seed
+        #     )
+        #     print(env.engine.get_policy(v))
+        ################# IDM ##################
         # Vehicles will reach their goal and exit, therefore, we need to iterate over the k vehicles that are present
-        actions = {k: [-0, 1.0] for k in env.vehicles.keys()}
+        actions = env.action_space.sample()
+        # actions = {k: [-0, 1.0] for k in env.vehicles.keys()}
         o, r, d, info = env.step(actions) # the actions are a dictionary corresponding to each vehicles so observation will also be dictiary for each vehicle's observation
-        print(o)
+        # print(o)
         # print("Observation: ", o[k].shape)
         for r_ in r.values():
             total_r += r_
+        # total_r += r
         ep_s += 1
 
         ####################### Extras that we can render ####################### 
