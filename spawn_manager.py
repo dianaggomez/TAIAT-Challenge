@@ -1,4 +1,6 @@
 import copy
+
+from matplotlib.backend_bases import LocationEvent
 from metadrive.component.vehicle.base_vehicle import BaseVehicle
 from math import floor
 from typing import Union, List, Dict
@@ -62,6 +64,8 @@ class SpawnManager(BaseManager):
         self.spawn_roads = spawn_roads
         self.need_update_spawn_places = True
 
+        # self.location_dict = {}
+
     @staticmethod
     def get_not_randomize_vehicle_configs(configs):
         ret = {}
@@ -85,26 +89,40 @@ class SpawnManager(BaseManager):
         # set the spawn road
         ret = {}
         if len(target_agents) > 1:
-            for real_idx, idx in enumerate(target_agents): # LHH: force to be the same
+            for real_idx, idx in enumerate(target_agents): 
+                # print("target agents", target_agents)
                 # print(real_idx, idx)
                 # v_config = self.available_target_vehicle_configs[idx]["config"]
                 # v_config = self._randomize_position_in_slot(v_config)
                 # ret["agent{}".format(real_idx)] = v_config
+
+                ####### LHH: force to be the same ########
                 v_config = self.available_target_vehicle_configs[real_idx]["config"]
+                print(real_idx, v_config)
                 v_config = self._randomize_position_in_slot(v_config)
                 ret["agent{}".format(real_idx)] = v_config
+                print("target agents", target_agents)
         else:
             ret["agent0"] = self._randomize_position_in_slot(self.available_target_vehicle_configs[0]["config"])
 
         # set the destination
         target_vehicle_configs = {}
+        # count_coalition = 0
         for agent_id, config in ret.items():
             if agent_id in self._init_target_vehicle_configs:
                 config = self._init_target_vehicle_configs[agent_id]
             if not config.get("destination_node", False) or config["destination_node"] is None:
                 config = self.update_destination_for(agent_id, config)
             target_vehicle_configs[agent_id] = config
+
+            # if count_coalition < 7:
+            #     self.location_dict[agent_id] = 1
+            # else:
+            #    self.location_dict[agent_id] = 0
+            # count_coalition +=1
         self.engine.global_config["target_vehicle_configs"] = copy.deepcopy(target_vehicle_configs)
+
+        # print(self.location_dict)
 
     @staticmethod
     def max_capacity(spawn_roads, exit_length, lane_num):
