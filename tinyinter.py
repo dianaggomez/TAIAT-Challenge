@@ -47,7 +47,7 @@ class MixedIDMAgentManager(AgentManager):
         self.ignore_delay_done = ignore_delay_done
         self.target_speed = target_speed
 
-        self.vehicle_coalition = []
+        self.vehicle_coalition = {}
 
     def filter_RL_agents(self, source_dict, original_done_dict=None):
 
