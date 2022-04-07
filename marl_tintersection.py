@@ -2,13 +2,10 @@ import copy
 from metadrive.manager.spawn_manager import SpawnManager
 from metadrive.manager.map_manager import MapManager
 from metadrive.component.pgblock.first_block import FirstPGBlock
-# from metadrive.component.blocks.first_block import FirstPGBlock
 from metadrive.component.pgblock.t_intersection import TInterSection
-# from metadrive.component.blocks.t_intersection import TInterSection
 from metadrive.component.map.pg_map import PGMap
-# from metadrive.component.road.road import Road
 from metadrive.component.road_network.road import Road
-from metadrive.envs.marl_envs.marl_inout_roundabout import LidarStateObservationMARound
+# from metadrive.envs.marl_envs.marl_inout_roundabout import LidarStateObservationMARound
 from metadrive.envs.marl_envs.multi_agent_metadrive import MultiAgentMetaDrive
 from metadrive.envs.marl_envs.tinyinter import MixedIDMAgentManager 
 from metadrive.envs import MetaDriveEnv
@@ -97,8 +94,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
     def default_config() -> Config:
         return MultiAgentMetaDrive.default_config().update(MATIntersectionConfig, allow_add_new_key=True)
 
-    def get_single_observation(self, vehicle_config: "Config") -> "ObservationBase":
-        return LidarStateObservationMARound(vehicle_config)
+    # def get_single_observation(self, vehicle_config: "Config") -> "ObservationBase":
+    #     return LidarStateObservationMARound(vehicle_config)
     
     #################################################################################33
     def setup_engine(self):
@@ -290,14 +287,13 @@ def _vis():
             "manual_control": True,
             "num_agents": 12,
             "delay_done": 0,
-            # "agent_policy": WaymoIDMPolicy,
             "num_RL_agents" : 6,
         }
     # config.update({'IDM_agent': True,})
     env = MultiAgentTIntersectionEnv(config)
     o = env.reset()
-    print("vehicle num", len(env.engine.traffic_manager.vehicles))
-    print("RL agent num", len(o))
+    # print("vehicle num", len(env.engine.traffic_manager.vehicles))
+    # print("RL agent num", len(o))
     #########
     total_r = 0
     ep_s = 0
