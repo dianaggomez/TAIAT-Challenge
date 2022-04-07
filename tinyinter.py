@@ -46,8 +46,8 @@ class MixedIDMAgentManager(AgentManager):
         self.all_previous_RL_agents = set()
         self.ignore_delay_done = ignore_delay_done
         self.target_speed = target_speed
-
-        self.vehicle_coalition = {}
+        # self.vehicle_coalitions = {}
+        self.vehicle_coalitions = {"agent0": 0, "agent1": 0, "agent2": 1, "agent3": 0,"agent4": 1, "agent5": 0,"agent6": 0,"agent7": 1, "agent8": 1,"agent9": 1,"agent10": 0,"agent11": 1}
 
     def filter_RL_agents(self, source_dict, original_done_dict=None):
 
@@ -97,6 +97,8 @@ class MixedIDMAgentManager(AgentManager):
         from metadrive.component.vehicle.vehicle_type import random_vehicle_type, vehicle_type
         ret = {}
         for agent_count, (agent_id, v_config) in enumerate(config_dict.items()):
+            print(agent_count)
+            print(agent_id, v_config)
             if self.engine.global_config["random_agent_model"]:
                 v_type = random_vehicle_type(self.np_random)
             else:
@@ -106,18 +108,20 @@ class MixedIDMAgentManager(AgentManager):
                     v_type = vehicle_type["default"]
             obj = self.spawn_object(v_type, vehicle_config=v_config)
             ret[agent_id] = obj
-            if (len(self.RL_agents) - len(self.dying_RL_agents)) >= self.num_RL_agents:
-                # policy = IDMPolicy(obj, self.generate_seed())
-                policy = TinyInterRuleBasedPolicy(obj, self.generate_seed(), target_speed=self.target_speed)
-                obj._use_special_color = False
-                self.vehicle_coalition[agent_id] = 1
+            # if (len(self.RL_agents) - len(self.dying_RL_agents)) >= self.num_RL_agents:
+            if self.vehicle_coalitions[agent_id] == 0:
+                policy = IDMPolicy(obj, self.generate_seed())
+                # policy = TinyInterRuleBasedPolicy(obj, self.generate_seed(), target_speed=self.target_speed)
+                obj._use_special_color = True
+                self.vehicle_coalitions[agent_id] = 1
             else:
                 policy = self._get_policy(obj)
                 self.RL_agents.add(agent_id)
                 self.all_previous_RL_agents.add(agent_id)
-                obj._use_special_color = True
-                self.vehicle_coalition[agent_id] = 0
+                obj._use_special_color = False
+                self.vehicle_coalitions[agent_id] = 0
             self.add_policy(obj.id, policy)
+            print(self.vehicle_coalitions)
         return ret
 
     def reset(self):
