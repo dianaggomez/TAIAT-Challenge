@@ -4,6 +4,7 @@ import numpy as np
 from metadrive.component.vehicle_navigation_module.node_network_navigation import NodeNetworkNavigation
 from metadrive.obs.observation_base import ObservationBase
 from metadrive.utils.math_utils import clip, norm
+# from metadrive.envs.marl_envs.tinyinter import MixedIDMAgentManager 
 
 
 class StateObservation(ObservationBase):
@@ -52,9 +53,14 @@ class StateObservation(ObservationBase):
         :param vehicle: BaseVehicle
         :return: Vehicle State + Navigation information
         """
+        # ===========================================================
+        # unwrapping vehicle object
+        v_id, vehicle = vehicle
         # navi_info = vehicle.navigation.get_navi_info()
         ego_state = self.vehicle_state(vehicle)[0:2] # 9
-        type(ego_state)
+        coalition = {"agent0": 0, "agent1": 0, "agent2": 1, "agent3": 0,"agent4": 1, "agent5": 0,"agent6": 0,"agent7": 1, "agent8": 1,"agent9": 1,"agent10": 0,"agent11": 1}
+        ego_state.append(coalition[v_id]) # include coalition in the states
+        # ===========================================================
         # ret = np.concatenate([ego_state, navi_info])
         # return ret.astype(np.float32)
         return np.array(ego_state, dtype='f')
@@ -178,6 +184,7 @@ class LidarStateObservation(ObservationBase):
         return self.state_obs.observe(vehicle)
 
     def lidar_observe(self, vehicle):
+        v_id, vehicle = vehicle
         other_v_info = []
         if vehicle.lidar.available:
             cloud_points, detected_objects = vehicle.lidar.perceive(vehicle, )

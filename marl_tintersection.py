@@ -310,34 +310,11 @@ def _vis():
         # for key in actions.keys():
             # if np.random.uniform() < 0.2:
                 # actions[key][1] *= -1
-
-        # print(actions)
-        ################# IDM ##################
-        # vehicles = env.engine.agent_manager.get_vehicle_list()
-        # for v in vehicles:
-        #     print(v)
-        #     print(type(v))
-        #     policy = IDMPolicy(
-        #         v, random_seed=env.current_seed
-        #     )
-        #     action = policy.before_step(v, front_vehicle=None, rear_vehicle=None, current_map=env.engine.current_map)
-        #     action = policy.step(dt=0.02)
-        #     action = policy.after_step(v, front_vehicle=None, rear_vehicle=None, current_map=env.engine.current_map)
-        #     env.engine.policy_manager.register_new_policy(
-        #         IDMPolicy,
-        #         vehicle=v,
-        #         traffic_manager=env.engine.traffic_manager,
-        #         delay_time=1,
-        #         random_seed=env.current_seed
-        #     )
-        #     print(env.engine.get_policy(v))
-        ################# IDM ##################
         # Vehicles will reach their goal and exit, therefore, we need to iterate over the k vehicles that are present
         actions = env.action_space.sample()
         # actions = {k: [-0, 1.0] for k in env.vehicles.keys()}
         o, r, d, info = env.step(actions) # the actions are a dictionary corresponding to each vehicles so observation will also be dictiary for each vehicle's observation
-        # print(o)
-        # print("Observation: ", o[k].shape)
+        print("Observation: ", o)
         for r_ in r.values():
             total_r += r_
         # total_r += r
