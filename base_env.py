@@ -230,6 +230,8 @@ class BaseEnv(gym.Env):
     def step(self, actions: Union[np.ndarray, Dict[AnyStr, np.ndarray]]):
         self.episode_steps += 1
         actions = self._preprocess_actions(actions)
+
+        # ======= Choose which actions should be taken =========
         engine_info = self._step_simulator(actions)
         o, r, d, i = self._get_step_return(actions, engine_info=engine_info)
         return o, r, d, i
