@@ -359,13 +359,7 @@ class BaseEnv(gym.Env):
         reward_infos = {}
         rewards = {}
         for v_id, v in self.vehicles.items():
-            # ===========================================================
-            # wrapping vehicle object to include id
-            # so that observation could have access to it
-            v_wrapped = [v_id, v]
-            o = self.observations[v_id].observe(v_wrapped)
-            # ===========================================================
-            # o = self.observations[v_id].observe(v)
+            o = self.state_obs.wrap_vehicle_obs(v,v_id)#observe(v)
             obses[v_id] = o
             done_function_result, done_infos[v_id] = self.done_function(v_id)
             rewards[v_id], reward_infos[v_id] = self.reward_function(v_id)
