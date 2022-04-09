@@ -359,8 +359,9 @@ class BaseEnv(gym.Env):
         reward_infos = {}
         rewards = {}
         for v_id, v in self.vehicles.items():
-            o = self.state_obs.wrap_vehicle_obs(v,v_id)#observe(v)
-            obses[v_id] = o
+            o = self.observations[v_id].observe(v)
+            print(f'get step return: {o}')
+            obses = np.array(o[0:2], v_id)
             done_function_result, done_infos[v_id] = self.done_function(v_id)
             rewards[v_id], reward_infos[v_id] = self.reward_function(v_id)
             _, cost_infos[v_id] = self.cost_function(v_id)
