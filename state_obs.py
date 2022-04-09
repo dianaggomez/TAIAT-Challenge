@@ -23,7 +23,12 @@ class StateObservation(ObservationBase):
         if self.config["random_agent_model"]:
             shape += 2
         return gym.spaces.Box(-0.0, 1.0, shape=(shape, ), dtype=np.float32)
-
+    
+    def wrap_vehicle_obs(self, vehicle, agent_id):
+         vehicle_obs = self.vehicle_state(vehicle)[0:2]
+         wrap_obs = np.array(agent_id, vehicle_obs)
+         return wrap_obs
+        
     def observe(self, vehicle):
         """
         Ego states: [
