@@ -14,6 +14,9 @@ from metadrive.utils import get_np_random, Config
 from metadrive.component.vehicle.vehicle_type import SVehicle, XLVehicle
 from metadrive.policy.idm_policy import IDMPolicy
 from metadrive.policy.idm_policy import WaymoIDMPolicy
+import numpy as np
+
+coalition = {"agent0": 0, "agent1": 0, "agent2": 1, "agent3": 0,"agent4": 1, "agent5": 0,"agent6": 0,"agent7": 1, "agent8": 1,"agent9": 1,"agent10": 0,"agent11": 1}
 
 MATIntersectionConfig = dict(
     spawn_roads=[
@@ -112,22 +115,38 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
     def step(self, actions):
         o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
-        if self.num_RL_agents == self.num_agents:
-            return o, r, d, i
 
-        original_done_dict = copy.deepcopy(d)
-        d = self.agent_manager.filter_RL_agents(d, original_done_dict=original_done_dict)
-        if "__all__" in d:
-            d.pop("__all__")
-        # assert len(d) == self.agent_manager.num_RL_agents, d
-        d["__all__"] = all(d.values())
-        return (
-            self.agent_manager.filter_RL_agents(o, original_done_dict=original_done_dict),
-            self.agent_manager.filter_RL_agents(r, original_done_dict=original_done_dict),
-            d,
-            self.agent_manager.filter_RL_agents(i, original_done_dict=original_done_dict),
-        )
+        #### New Observation #####
+        # Output as numpy array
+        # If agent exists, or dies, output [0,0,coalition]
+        obs = []
+        order = [0,1,2,3,4,5,11,10,9,8,7,6]
+        for num in order:
+            if 'agent{n}'.format(n=num) in o:
+                obs.append(o['agent{n}'.format(n=num)])
+            else:
+                obs.append([0,0, coalition['agent{n}'.format(n=num)]])
+        o = np.array(obs)
 
+        ########### INFO For RL Agent ###################
+        # We can use this when identify the rewards
+
+        # if self.num_RL_agents == self.num_agents:
+        #     return o, r, d, i
+
+        # original_done_dict = copy.deepcopy(d)
+        # d = self.agent_manager.filter_RL_agents(d, original_done_dict=original_done_dict)
+        # if "__all__" in d:
+        #     d.pop("__all__")
+        # # assert len(d) == self.agent_manager.num_RL_agents, d
+        # d["__all__"] = all(d.values())
+        # return (
+        #     self.agent_manager.filter_RL_agents(o, original_done_dict=original_done_dict),
+        #     self.agent_manager.filter_RL_agents(r, original_done_dict=original_done_dict),
+        #     d,
+        #     self.agent_manager.filter_RL_agents(i, original_done_dict=original_done_dict),
+        # )
+        return o, r, d, i
     def _preprocess_actions(self, actions):
         if self.num_RL_agents == self.num_agents:
             return super(MultiAgentTIntersectionEnv, self)._preprocess_actions(actions)
