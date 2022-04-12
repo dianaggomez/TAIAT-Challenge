@@ -17,3 +17,8 @@ To run the T-intersection env: python -m metadrive.envs.marl_envs.marl_tintersec
 * Implement "controller" for human vehicles (they should know how to drive)
   * look into pid or idm 
 * train PPO 
+
+## Checkpoint locations
+1. [60., 0.] (left)
+2. [73.5, -13.499999999999996] (center)
+3. [83.5, -3.5] (right)
