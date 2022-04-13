@@ -1,6 +1,7 @@
 from metadrive.envs.marl_envs.marl_intersection import MultiAgentIntersectionEnv
 from metadrive.manager.agent_manager import AgentManager
-from metadrive.policy.idm_policy import IDMPolicy, idm_upgrade
+from metadrive.policy.idm_policy import IDMPolicy
+from metadrive.policy.idm_upgrade_policy import idm_upgrade_policy
 from metadrive.utils import Config
 import logging
 from metadrive.utils.math_utils import not_zero, wrap_to_pi
@@ -112,7 +113,7 @@ class MixedIDMAgentManager(AgentManager):
             ret[agent_id] = obj
             # if (len(self.RL_agents) - len(self.dying_RL_agents)) >= self.num_RL_agents:
             if self.vehicle_coalitions[agent_id] == 0:
-                policy =  idm_upgrade(obj, self.generate_seed(), self.vehicles_all_obs) #IDMPolicy(obj, self.generate_seed())
+                policy =  idm_upgrade_policy(obj, self.generate_seed(), self.vehicles_all_obs) #IDMPolicy(obj, self.generate_seed())
                 # policy = TinyInterRuleBasedPolicy(obj, self.generate_seed(), target_speed=self.target_speed)
                 obj._use_special_color = True
                 self.vehicle_coalitions[agent_id] = 0
