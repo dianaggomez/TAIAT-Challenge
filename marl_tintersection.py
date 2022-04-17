@@ -315,6 +315,10 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 else:
                     low_level_action = self.process_input("turnLeft")
         
+        # Take step for the agent
+        ### We may talk directly to the engine of each agent as they did in the manual control
+
+        
         # Check if a vehicles has crossed the checkpoint
         if self.vehicle_crossed_checkpoint(vehicle):
             if : # on right side
