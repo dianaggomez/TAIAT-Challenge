@@ -1,4 +1,5 @@
 import copy
+from re import S
 from metadrive.manager.spawn_manager import SpawnManager
 from metadrive.manager.map_manager import MapManager
 from metadrive.component.pgblock.first_block import FirstPGBlock
@@ -15,6 +16,8 @@ from metadrive.component.vehicle.vehicle_type import SVehicle, XLVehicle
 from metadrive.policy.idm_policy import IDMPolicy
 from metadrive.policy.idm_policy import WaymoIDMPolicy
 import numpy as np
+from collections import deque
+import random
 
 coalition = {"agent0": 0, "agent1": 0, "agent2": 1, "agent3": 0,"agent4": 1, "agent5": 0,"agent6": 0,"agent7": 1, "agent8": 1,"agent9": 1,"agent10": 0,"agent11": 1}
 
@@ -92,6 +95,20 @@ class MATIntersectionMapManager(MapManager):
 
 
 class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
+    STEERING_INCREMENT = 0.04
+    STEERING_DECAY = 0.25
+
+    THROTTLE_INCREMENT = 0.1
+    THROTTLE_DECAY = 0.2
+
+    BRAKE_INCREMENT = 0.5
+    BRAKE_DECAY = 0.5
+
+    def __init__(self):
+        # steering and throttle for all agents 
+        self.agents_steering = []
+        self.agents_throttle = []
+        self.left_queue, self.right_queue = self.generate_queue()
 
     @staticmethod
     def default_config() -> Config:
@@ -112,6 +129,126 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             return org
 
         return self.agent_manager.filter_RL_agents(org)
+    #################################################################################33
+    def generate_queue(self):
+        queue = [1]*6 + [2]*6
+        random.shuffle(queue)
+        left_queue = deque(queue[:len(queue)//2])
+        right_queue = deque(queue[len(queue)//2:])
+        return left_queue, right_queue
+
+    def process_high_level_action(self, high_level_action):
+        # high-level actions: (0,0), (1,0), (0,1), (1,1)
+        # human :1, coatilition: 2
+        front_of_queue = (self.left_queue[0], self.right_queue[0])
+        # Need to define front_of_queue
+        if high_level_action == (0, 0):
+            if front_of_queue == (2,2):
+                pass
+            elif front_of_queue == (1,2):
+                high_level_action = (1,0)
+                num_of_vehicles = [1,0]
+            elif front_of_queue == (2,1):
+                high_level_action = (0,1)
+                num_of_vehicles = [0,1]
+            else: # proceed to Social Rule
+                high_level_action == (1,1)
+                num_of_vehicles = [1,1]
+        elif high_level_action == (0, 1):
+            if front_of_queue == (2,2):
+                num_of_vehicles =  self.num_of_vehicles_to_exit(high_level_action)
+            elif front_of_queue == (2,1):
+                high_level_action = (0,1)
+                num_of_vehicles = [0,1]
+            else:# proceed to Social Rule
+                high_level_action = (1,1)
+                num_of_vehicles = [1,1]
+        elif high_level_action == (1,0):
+            if front_of_queue == (2,2):
+                num_of_vehicles = self.num_of_vehicles_to_exit(high_level_action)
+            elif front_of_queue == (1,2):
+                high_level_action = (1,0)
+                num_of_vehicles = [1,0]
+            else: #proceed to Social Rule
+                high_level_action = (1,1)
+                num_of_vehicles = [1,1]
+        elif high_level_action == (1,1):
+            num_of_vehicles = [1,1]
+
+        return high_level_action, num_of_vehicles
+
+    def num_of_vehicles_to_exit(self, high_level_action):
+        # check the side of the queue with go, up to 3 vehicles may exit
+        counter = 0
+        if high_level_action == (0,1):
+            if len(self.right_queue) > 0:
+                for i in range(min(len(self.right_queue)),3):
+                    if self.right_queue[i] == 2:
+                        counter+=1
+                    else:
+                        break
+            num_of_vehicles = [0,counter]
+        elif high_level_action == (1,0):
+            if len(self.left_queue) > 0:
+                for i in range(min(len(self.left_queue)),3):
+                    if self.left_queue[i] == 2:
+                        counter+=1
+                    else:
+                        break
+            num_of_vehicles = [counter,0]
+
+        return num_of_vehicles
+        
+    def process_input(self, low_level_action):
+        steering = 0.
+        throttle_brake = 0.
+        # forward, turnLeft, turnRight
+        if low_level_action == "forward":
+            throttle_brake = 1.0
+        elif low_level_action == 'turnLeft':
+            steering = 1.0
+        elif low_level_action == 'turnRight':
+            steering = -1.0
+
+        # call further process before 
+        self.further_process(steering, throttle_brake)
+
+        return np.array([self.steering, self.throttle_brake], dtype=np.float64)
+
+    def further_proces(self, steering, throttle_brake):
+        if steering == 0.:
+            if self.steering > 0.:
+                self.steering -= self.STEERING_DECAY
+                self.steering = max(0., self.steering)
+            elif self.steering < 0.:
+                self.steering += self.STEERING_DECAY
+                self.steering = min(0., self.steering)
+        if throttle_brake == 0.:
+            if self.throttle_brake > 0.:
+                self.throttle_brake -= self.THROTTLE_DECAY
+                self.throttle_brake = max(self.throttle_brake, 0.)
+            elif self.throttle_brake < 0.:
+                self.throttle_brake += self.BRAKE_DECAY
+                self.throttle_brake = min(0., self.throttle_brake)
+
+        if steering > 0.:
+            self.steering += self.STEERING_INCREMENT if self.steering > 0. else self.STEERING_DECAY
+        elif steering < 0.:
+            self.steering -= self.STEERING_INCREMENT if self.steering < 0. else self.STEERING_DECAY
+
+        if throttle_brake > 0.:
+            self.throttle_brake = max(self.throttle_brake, 0.)
+            self.throttle_brake += self.THROTTLE_INCREMENT
+        elif throttle_brake < 0.:
+            self.throttle_brake = min(self.throttle_brake, 0.)
+            self.throttle_brake -= self.BRAKE_INCREMENT
+
+        rand = self.np_random.rand(2, 1) / 10000
+        # self.throttle_brake += rand[0]
+        self.steering += rand[1]
+
+        self.throttle_brake = min(max(-1., self.throttle_brake), 1.)
+        self.steering = min(max(-1., self.steering), 1.)
 
     def step(self, actions):
         o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
@@ -290,8 +427,8 @@ def _vis():
             "vehicle_config": {
                 "vehicle_model": 's',
                 "lidar": {
-                    "num_lasers": 0, # the more dense, the more accurate but longer computation time
-                    "num_others": 0,
+                    "num_lasers": 240, # the more dense, the more accurate but longer computation time
+                    "num_others": 4,
                     "distance": 40
                 },
                 "show_lidar": False,
@@ -306,7 +443,7 @@ def _vis():
             "manual_control": True,
             "num_agents": 12,
             "delay_done": 0,
-            "num_RL_agents" : 6,
+            "num_RL_agents" : 0,
         }
     # config.update({'IDM_agent': True,})
     env = MultiAgentTIntersectionEnv(config)
@@ -331,9 +468,10 @@ def _vis():
                 # actions[key][1] *= -1
         # Vehicles will reach their goal and exit, therefore, we need to iterate over the k vehicles that are present
         actions = env.action_space.sample()
+        print(actions)
         # actions = {k: [-0, 1.0] for k in env.vehicles.keys()}
         o, r, d, info = env.step(actions) # the actions are a dictionary corresponding to each vehicles so observation will also be dictiary for each vehicle's observation
-        print("Observation: ", o)
+        # print("Observation: ", o)
         for r_ in r.values():
             total_r += r_
         # total_r += r
