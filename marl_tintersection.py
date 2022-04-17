@@ -147,33 +147,33 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 pass
             elif front_of_queue == (1,2):
                 high_level_action = (1,0)
-                num_of_vehicles = [1,0]
+                num_of_vehicles = np.array([1,0])
             elif front_of_queue == (2,1):
                 high_level_action = (0,1)
-                num_of_vehicles = [0,1]
+                num_of_vehicles = np.array([0,1])
             else: # proceed to Social Rule
                 high_level_action == (1,1)
-                num_of_vehicles = [1,1]
+                num_of_vehicles = np.array([1,1])
         elif high_level_action == (0, 1):
             if front_of_queue == (2,2):
                 num_of_vehicles =  self.num_of_vehicles_to_exit(high_level_action)
             elif front_of_queue == (2,1):
                 high_level_action = (0,1)
-                num_of_vehicles = [0,1]
+                num_of_vehicles = np.array([0,1])
             else:# proceed to Social Rule
                 high_level_action = (1,1)
-                num_of_vehicles = [1,1]
+                num_of_vehicles = np.array([1,1])
         elif high_level_action == (1,0):
             if front_of_queue == (2,2):
                 num_of_vehicles = self.num_of_vehicles_to_exit(high_level_action)
             elif front_of_queue == (1,2):
                 high_level_action = (1,0)
-                num_of_vehicles = [1,0]
+                num_of_vehicles = np.array([1,0])
             else: #proceed to Social Rule
                 high_level_action = (1,1)
-                num_of_vehicles = [1,1]
+                num_of_vehicles = np.array([1,1])
         elif high_level_action == (1,1):
-            num_of_vehicles = [1,1]
+            num_of_vehicles = np.array([1,1])
 
         return high_level_action, num_of_vehicles
 
@@ -187,7 +187,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                         counter+=1
                     else:
                         break
-            num_of_vehicles = [0,counter]
+            num_of_vehicles = np.rray([0,counter])
         elif high_level_action == (1,0):
             if len(self.left_queue) > 0:
                 for i in range(min(len(self.left_queue)),3):
@@ -195,7 +195,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                         counter+=1
                     else:
                         break
-            num_of_vehicles = [counter,0]
+            num_of_vehicles = np.array([counter,0])
 
         return num_of_vehicles
         
@@ -250,10 +250,96 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         self.throttle_brake = min(max(-1., self.throttle_brake), 1.)
         self.steering = min(max(-1., self.steering), 1.)
 
-    def step(self, actions):
-        o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
+    def within_box_range(self, vehicle):
+        x,y = vehicle.position()
+        # hyperparameter
+        radius = 5 
+        # location of checkpoints
+        left = [60., 0.] 
+        right = [83.5, -3.5] 
 
-        #### New Observation #####
+        if # vehicle on left side:
+            x_checkpoint, y_checkpoint = left
+        else:
+            x_checkpoint, y_checkpoint = right
+
+        if np.abs(x - x_checkpoint) < radius and np.abs(y - y_checkpoint) < radius:
+            return True
+        else:
+            return False
+    
+    def vehicle_crossed_checkpoint(vehicle):
+        x,y = vehicle.position()
+        # hyperparameter
+        radius = 5 
+        # location of checkpoints
+        left = [60., 0.] 
+        right = [83.5, -3.5] 
+
+        if # vehicle on left side:
+            x_checkpoint, y_checkpoint = left
+        else:
+            x_checkpoint, y_checkpoint = right
+
+        if (x - x_checkpoint) > radius and (y - y_checkpoint) > radius: # PLEASE CHECK THIS, MAY NOT WORK
+            return True
+        else:
+            return False
+
+    def take_step(self, high_level_action, exited, num_of_vehicles):
+        vehicles_to_exit = exited - num_of_vehicles
+        # need to pass through the vehicle that we are taking a step for
+        vehicle = ...
+
+        if high_level_action == (0,1):
+            # only right queue 
+            for i in range(vehicles_to_exit[1]):
+                if self.within_box_range(vehicle):
+                    low_level_action = self.process_input('turnLeft')
+                else:
+                    low_level_action = self.process_input('forward')
+        elif high_level_action == (1,0):
+            # only left_queue moves
+            for i in range(vehicles_to_exit[0]):
+                if self.within_box_range(vehicle):
+                    low_level_action = self.process_input('turnRight')
+                else:
+                    low_level_action = self.process_input('forward')
+        else:
+            # both move
+            for i in range(2):
+                if not self.within_box_range(vehicle):
+                    low_level_action = self.process_input('forward')
+                elif :# on left side
+                    low_level_action = self.process_input("turnRight")
+                else:
+                    low_level_action = self.process_input("turnLeft")
+        
+        # Check if a vehicles has crossed the checkpoint
+        if self.vehicle_crossed_checkpoint(vehicle):
+            if : # on right side
+                num_of_vehicles_exited += np.array([0,1])
+            else:# on left side
+                num_of_vehicles_exited += np.array([1,0])
+
+        return num_of_vehicles_exited
+
+    def step(self, actions):
+        # o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
+        exited = np.array([0,0])
+
+        ########## High-Level Step Function (Discrete) #########
+        high_level_action, num_of_vehicles = self.process_high_level_action(actions)
+
+        ######## Low-Level Step Function (Continuous) ##########
+        if high_level_action == (0,0):
+            pass
+        else:
+            while exited != num_of_vehicles: 
+                exited = self.take_step(high_level_action, num_of_vehicles, exited)
+
+        # Update observation, reward, done, and info
+         #### New Observation #####
         # Output as numpy array
         # If agent exists, or dies, output [0,0,coalition]
         obs = []
@@ -265,31 +351,14 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 obs.append([0,0, coalition['agent{n}'.format(n=num)]])
         o = np.array(obs)
 
-        ########### INFO For RL Agent ###################
-        # We can use this when identify the rewards
-
-        # if self.num_RL_agents == self.num_agents:
-        #     return o, r, d, i
-
-        # original_done_dict = copy.deepcopy(d)
-        # d = self.agent_manager.filter_RL_agents(d, original_done_dict=original_done_dict)
-        # if "__all__" in d:
-        #     d.pop("__all__")
-        # # assert len(d) == self.agent_manager.num_RL_agents, d
-        # d["__all__"] = all(d.values())
-        # return (
-        #     self.agent_manager.filter_RL_agents(o, original_done_dict=original_done_dict),
-        #     self.agent_manager.filter_RL_agents(r, original_done_dict=original_done_dict),
-        #     d,
-        #     self.agent_manager.filter_RL_agents(i, original_done_dict=original_done_dict),
-        # )
         return o, r, d, i
-    def _preprocess_actions(self, actions):
-        if self.num_RL_agents == self.num_agents:
-            return super(MultiAgentTIntersectionEnv, self)._preprocess_actions(actions)
 
-        actions = {v_id: actions[v_id] for v_id in self.vehicles.keys() if v_id in self.agent_manager.RL_agents}
-        return actions
+    # def _preprocess_actions(self, actions):
+    #     if self.num_RL_agents == self.num_agents:
+    #         return super(MultiAgentTIntersectionEnv, self)._preprocess_actions(actions)
+
+    #     actions = {v_id: actions[v_id] for v_id in self.vehicles.keys() if v_id in self.agent_manager.RL_agents}
+    #     return actions
 
     def __init__(self, config=None):
         super(MultiAgentTIntersectionEnv, self).__init__(config=config)
