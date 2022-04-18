@@ -6,6 +6,7 @@ from metadrive.component.pgblock.first_block import FirstPGBlock
 from metadrive.component.pgblock.t_intersection import TInterSection
 from metadrive.component.map.pg_map import PGMap
 from metadrive.component.road_network.road import Road
+from metadrive.component.vehicle.base_vehicle import BaseVehicle
 # from metadrive.envs.marl_envs.marl_inout_roundabout import LidarStateObservationMARound
 from metadrive.envs.marl_envs.multi_agent_metadrive import MultiAgentMetaDrive
 from metadrive.envs.marl_envs.tinyinter import MixedIDMAgentManager 
@@ -316,7 +317,19 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     low_level_action = self.process_input("turnLeft")
         
         # Take step for the agent
+        # process_input(self, low_level_action) will provide: 
+        # array([self.steering, self.throttle_brake], dtype=np.float64)
         ### We may talk directly to the engine of each agent as they did in the manual control
+        # In police -> manual_contorl_policy -> def(act) 
+        # -> manual_controller -> def process_input-> retunr self.steering, self.throttle_brake
+        # find where / how can we send those infor to the car or engine
+        # Solution: Use component->vehicle->base_vechicle: 
+        #           line 352 -> _set_action(action) [self.steering, self.throttle_brake]
+        #           line 360 -> _set_incremental_action(self, action: np.ndarray)
+        #           both fucntion will use _create_vehicle_chassis() -> an object class from BulletVechicle 
+        #           from library panda3d.bullet
+        low_level_conotrller = BaseVehicle()
+        low_level_conotrller._set_incremental_action(low_level_action)
 
         
         # Check if a vehicles has crossed the checkpoint
