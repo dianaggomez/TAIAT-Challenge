@@ -7,6 +7,8 @@ Place spawn_manager.py under metadrive/metadrive/manager (replace the original)
 Place state_obs.py under obs (replace the original)
 To run the T-intersection env: python -m metadrive.envs.marl_envs.marl_tintersection 
 
+## Structure 
+HighLevelController is its own environment with the MetaDrive that we have been working on as a propoerty
 
 ## Checklist
 * Change observation space:
