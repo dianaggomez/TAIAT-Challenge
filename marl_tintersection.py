@@ -281,26 +281,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         else:
             return False
 
-        
-    # def vehicle_crossed_checkpoint(self, vehicle):
-        # x,y = vehicle.position()
-        # # hyperparameter
-        # radius = 5 
-        # # location of checkpoints
-        # left = [60., 0.] 
-        # right = [83.5, -3.5] 
-
-        # if # vehicle on left side:
-        #     x_checkpoint, y_checkpoint = left
-        # else:
-        #     x_checkpoint, y_checkpoint = right
-
-        # if (x - x_checkpoint) > radius and (y - y_checkpoint) > radius: # PLEASE CHECK THIS, MAY NOT WORK
-        #     return True
-        # else:
-        #     return False
-        # return True
-
     def vehicle_take_action(self, vehicle, action):
         if vehicle.increment_steering: # an attribute from base vehicle class (line 147 of baseVehicle)
             vehicle._set_incremental_action(action)
