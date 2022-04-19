@@ -106,10 +106,12 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
     BRAKE_DECAY = 0.5
 
     def __init__(self):
+        self.vehicle_order = [0,1,2,3,4,5,11,10,9,8,7,6]
         # steering and throttle for all agents 
         self.agents_steering = []
         self.agents_throttle = []
         self.left_queue, self.right_queue = self.generate_queue()
+        self.left_vehicle_queue, self.right_vehicle_queue = self.generate_vehicle_queue()
 
     @staticmethod
     def default_config() -> Config:
@@ -137,6 +139,12 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         left_queue = deque(queue[:len(queue)//2])
         right_queue = deque(queue[len(queue)//2:])
         return left_queue, right_queue
+    
+    def generate_vehicle_queue(self):
+        all_vehicles = list(self.vehicles.items()).reverse()
+        left_vehicle_queue = deque([v for v in all_vehicles[6:]]) # 5 ~ 0 (front of queue at index 0)
+        right_vehicle_queue = deque([v for v in all_vehicles[:6]]) # 11 ~ 6
+        return left_vehicle_queue, right_vehicle_queue
 
     def process_high_level_action(self, high_level_action):
         # high-level actions: (0,0), (1,0), (0,1), (1,1)
@@ -216,7 +224,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         return np.array([self.steering, self.throttle_brake], dtype=np.float64)
 
-    def further_proces(self, steering, throttle_brake):
+    def further_process(self, steering, throttle_brake):
         if steering == 0.:
             if self.steering > 0.:
                 self.steering -= self.STEERING_DECAY
@@ -251,15 +259,18 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         self.throttle_brake = min(max(-1., self.throttle_brake), 1.)
         self.steering = min(max(-1., self.steering), 1.)
 
-    def within_box_range(self, vehicle):
+    def within_box_range(self, vehicle, check_turn_complete = False) -> bool:
         x,y = vehicle.position()
         # hyperparameter
         radius = 5 
         # location of checkpoints
         left = [60., 0.] 
         right = [83.5, -3.5] 
+        top = [73.5, -13.5]
 
-        if # vehicle on left side:
+        if check_turn_complete:
+            x_checkpoint, y_checkpoint = top
+        elif ...: # vehicle on left side
             x_checkpoint, y_checkpoint = left
         else:
             x_checkpoint, y_checkpoint = right
@@ -268,54 +279,105 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             return True
         else:
             return False
-    
-    def vehicle_crossed_checkpoint(vehicle):
-        x,y = vehicle.position()
-        # hyperparameter
-        radius = 5 
-        # location of checkpoints
+
+        
+    # def vehicle_crossed_checkpoint(self, vehicle):
+        # x,y = vehicle.position()
+        # # hyperparameter
+        # radius = 5 
+        # # location of checkpoints
+        # left = [60., 0.] 
+        # right = [83.5, -3.5] 
+
+        # if # vehicle on left side:
+        #     x_checkpoint, y_checkpoint = left
+        # else:
+        #     x_checkpoint, y_checkpoint = right
+
+        # if (x - x_checkpoint) > radius and (y - y_checkpoint) > radius: # PLEASE CHECK THIS, MAY NOT WORK
+        #     return True
+        # else:
+        #     return False
+        # return True
+
+    def vehicle_take_action(self, vehicle, action):
+        if vehicle.increment_steering: # an attribute from base vehicle class (line 147 of baseVehicle)
+            vehicle._set_incremental_action(action)
+        else:
+            vehicle._set_action(action)
+
+    def vehicle_is_turning(self, vehicle) -> bool:
+        # check whether the vehicle has already passed 1st checkpoint
+        # but are not yet at the 2nd checkpoint
         left = [60., 0.] 
         right = [83.5, -3.5] 
+        top = [73.5, -13.5]
 
-        if # vehicle on left side:
-            x_checkpoint, y_checkpoint = left
-        else:
-            x_checkpoint, y_checkpoint = right
+        x,y = vehicle.position()
 
-        if (x - x_checkpoint) > radius and (y - y_checkpoint) > radius: # PLEASE CHECK THIS, MAY NOT WORK
+        if ((left[0] <= x <= top[0]) or (top[0] <= x <= right[0])) and (left[1] <= y <= top[1]):
             return True
+
+    def vehicle_exit_check(self, vehicle) -> bool:
+        if self.vehicle_is_turning:
+            # is turning means the vehicle is between 1st and 2nd checkpoint
+            if self.within_box_range(vehicle, check_turn_complete=True):
+                return True
+            else:
+                return False
         else:
             return False
 
     def take_step(self, high_level_action, exited, num_of_vehicles):
-        vehicles_to_exit = exited - num_of_vehicles
+        vehicles_to_exit = np.abs(exited - num_of_vehicles)
         # need to pass through the vehicle that we are taking a step for
-        vehicle = ...
 
+        # first we check the high_level actions
         if high_level_action == (0,1):
             # only right queue 
             for i in range(vehicles_to_exit[1]):
-                if self.within_box_range(vehicle):
+                vehicle = self.right_vehicle_queue[i] # initialized in generate_vehicle_queue
+                if self.within_box_range(vehicle) or self.vehicle_is_turning(vehicle):
+                    # when a vehicle reaches 1st checkpoint or is in the process of turning
                     low_level_action = self.process_input('turnLeft')
-                else:
+                    self.vehicle_take_action(vehicle, low_level_action)
+                else: 
                     low_level_action = self.process_input('forward')
+                    self.vehicle_take_action(vehicle, low_level_action)
         elif high_level_action == (1,0):
             # only left_queue moves
             for i in range(vehicles_to_exit[0]):
-                if self.within_box_range(vehicle):
+                vehicle = self.left_vehicle_queue[i]
+                if self.within_box_range(vehicle) or self.vehilce_is_turning(vehicle):
                     low_level_action = self.process_input('turnRight')
-                else:
+                    self.vehicle_take_action(vehicle, low_level_action)
+                else: 
                     low_level_action = self.process_input('forward')
+                    self.vehicle_take_action(vehicle, low_level_action)
         else:
             # both move
-            for i in range(2):
-                if not self.within_box_range(vehicle):
+            front_vehicles = [self.left_vehicle_queue[0], self.right_vehicle_queue[0]] # the two vehicles at front
+            for i in range(2): 
+                if not self.within_box_range(front_vehicles[i]):
                     low_level_action = self.process_input('forward')
-                elif :# on left side
+                    self.vehicle_take_action(vehicle, low_level_action)
+                elif i == 1: # on left side
                     low_level_action = self.process_input("turnRight")
+                    self.vehicle_take_action(vehicle, low_level_action)
                 else:
                     low_level_action = self.process_input("turnLeft")
+                    self.vehicle_take_action(vehicle, low_level_action)
+
+        # then we check if the front of queue (both left and right) have completed turning
+        # if so, remove them from the queues and increment num_vehicles_exited
+        if self.vehicle_exit_check(self.left_vehicle_queue[0]):
+            self.left_vehicle_queue.remove(self.left_vehicle_queue[0])
+            exited += np.array([1,0])
+        if self.vehicle_exit_check(self.right_vehicle_queue[0]):
+            self.left_vehicle_queue.remove(self.right_vehicle_queue[0])
+            exited += np.array([0,1])
         
+        # TAKING ACTION IS IMPLEMENTED ABOVE
         # Take step for the agent
         # process_input(self, low_level_action) will provide: 
         # array([self.steering, self.throttle_brake], dtype=np.float64)
@@ -328,18 +390,16 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         #           line 360 -> _set_incremental_action(self, action: np.ndarray)
         #           both fucntion will use _create_vehicle_chassis() -> an object class from BulletVechicle 
         #           from library panda3d.bullet
-        low_level_conotrller = BaseVehicle()
-        low_level_conotrller._set_incremental_action(low_level_action)
 
-        
+        # THIS IS IMPLEMENTED IN vehicle_exit_check
         # Check if a vehicles has crossed the checkpoint
-        if self.vehicle_crossed_checkpoint(vehicle):
-            if : # on right side
-                num_of_vehicles_exited += np.array([0,1])
-            else:# on left side
-                num_of_vehicles_exited += np.array([1,0])
+        # if self.vehicle_crossed_checkpoint(vehicle):
+        #     if : # on right side
+        #         num_of_vehicles_exited += np.array([0,1])
+        #     else:# on left side
+        #         num_of_vehicles_exited += np.array([1,0])
 
-        return num_of_vehicles_exited
+        return exited
 
     def step(self, actions):
         # o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
@@ -360,8 +420,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         # Output as numpy array
         # If agent exists, or dies, output [0,0,coalition]
         obs = []
-        order = [0,1,2,3,4,5,11,10,9,8,7,6]
-        for num in order:
+        for num in self.vehicle_order:
             if 'agent{n}'.format(n=num) in o:
                 obs.append(o['agent{n}'.format(n=num)])
             else:
@@ -531,10 +590,11 @@ def _vis():
             "delay_done": 0,
             "num_RL_agents" : 0,
         }
-    # config.update({'IDM_agent': True,})
     env = MultiAgentTIntersectionEnv(config)
     o = env.reset()
-    # print("vehicle num", len(env.engine.traffic_manager.vehicles))
+    print("===============================================")
+    print("vehicle num", env.vehicles.values(), type(list(env.vehicles.values())[0]))
+    print("===============================================")
     # print("RL agent num", len(o))
     #########
     total_r = 0
