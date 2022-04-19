@@ -358,7 +358,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             # both move
             front_vehicles = [self.left_vehicle_queue[0], self.right_vehicle_queue[0]] # the two vehicles at front
             for i in range(2): 
-                if not self.within_box_range(front_vehicles[i]):
+                if (not self.within_box_range(front_vehicles[i])) and (not self.vehicle_is_turning(front_vehicles[i])):
                     low_level_action = self.process_input('forward')
                     self.vehicle_take_action(vehicle, low_level_action)
                 elif i == 1: # on left side
