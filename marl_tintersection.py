@@ -341,7 +341,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 vehicle = self.right_vehicle_queue[i] # initialized in generate_vehicle_queue
                 if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
                     # when a vehicle reaches 1st checkpoint or is in the process of turning
-                    low_level_action = self.process_input('turnLeft')
+                    low_level_action = self.process_input('turnRight')
                     self.vehicle_take_action(vehicle, low_level_action)
                 else: 
                     low_level_action = self.process_input('forward')
@@ -357,7 +357,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             for i in range(vehicles_to_exit[0]):
                 vehicle = self.left_vehicle_queue[i]
                 if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
-                    low_level_action = self.process_input('turnRight')
+                    low_level_action = self.process_input('turnLeft')
                     self.vehicle_take_action(vehicle, low_level_action)
                 else: 
                     low_level_action = self.process_input('forward')
