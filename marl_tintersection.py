@@ -317,6 +317,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         if ((left[0] <= x <= top[0]) or (top[0] <= x <= right[0])) and (left[1] <= y <= top[1]):
             return True
+        return False
 
     def vehicle_exit_check(self, vehicle) -> bool:
         if self.vehicle_is_turning:
