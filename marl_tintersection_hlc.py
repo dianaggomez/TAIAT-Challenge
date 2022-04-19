@@ -6,8 +6,8 @@ from metadrive.envs.marl_envs.marl_tintersection import MultiAgentTIntersectionE
 
 class HighLevelControllerEnv(gym.Env):
     def __init__(self):
-        self.action_space = spaces.Tuple(spaces.Discrete(2), spaces.Discrete(2)) # Ask Peide: Does this have to be a numpy array?
-        self.observation_space =  spaces.Box(low = -100, high = 100, size = (12,3)) # needs to be size = (12,3) numpy array or maybe a tuple
+        self.action_space = spaces.Tuple((spaces.Discrete(2), spaces.Discrete(2))) # Ask Peide: Does this have to be a numpy array?
+        self.observation_space = spaces.Box(low = -100, high = 100, shape= (12,3), dtype = np.float16) # needs to be size = (12,3) numpy array or maybe a tuple
 
         
     @property 
@@ -32,5 +32,5 @@ class HighLevelControllerEnv(gym.Env):
         pass
 
 if __name__ == "__main__":
-    env = HighLevelControllerEnv
+    env = HighLevelControllerEnv()
     print((env.observation_space).shape)
