@@ -140,6 +140,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         right_queue = deque(queue[len(queue)//2:])
         return left_queue, right_queue
     
+    # generate the queue above but with vehicles objects 
     def generate_vehicle_queue(self):
         all_vehicles = list(self.vehicles.items()).reverse()
         left_vehicle_queue = deque([v for v in all_vehicles[6:]]) # 5 ~ 0 (front of queue at index 0)
@@ -259,7 +260,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         self.throttle_brake = min(max(-1., self.throttle_brake), 1.)
         self.steering = min(max(-1., self.steering), 1.)
 
-    def within_box_range(self, vehicle, check_turn_complete = False) -> bool:
+    def within_box_range(self, vehicle, side, check_turn_complete = False) -> bool:
         x,y = vehicle.position()
         # hyperparameter
         radius = 5 
@@ -270,7 +271,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         if check_turn_complete:
             x_checkpoint, y_checkpoint = top
-        elif ...: # vehicle on left side
+        elif side == "left": # vehicle on left side
             x_checkpoint, y_checkpoint = left
         else:
             x_checkpoint, y_checkpoint = right
@@ -317,7 +318,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         if ((left[0] <= x <= top[0]) or (top[0] <= x <= right[0])) and (left[1] <= y <= top[1]):
             return True
-        return False
 
     def vehicle_exit_check(self, vehicle) -> bool:
         if self.vehicle_is_turning:
@@ -332,42 +332,71 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
     def take_step(self, high_level_action, exited, num_of_vehicles):
         vehicles_to_exit = np.abs(exited - num_of_vehicles)
         # need to pass through the vehicle that we are taking a step for
+        vehicle_remaining_in_queues = np.abs(vehicles_to_exit - np.array([len(self.left_vehicle_queue),len(self.right_vehicle_queue)]))
 
         # first we check the high_level actions
         if high_level_action == (0,1):
-            # only right queue 
+            side = 'right'# only right queue 
             for i in range(vehicles_to_exit[1]):
                 vehicle = self.right_vehicle_queue[i] # initialized in generate_vehicle_queue
-                if self.within_box_range(vehicle) or self.vehicle_is_turning(vehicle):
+                if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
                     # when a vehicle reaches 1st checkpoint or is in the process of turning
                     low_level_action = self.process_input('turnLeft')
                     self.vehicle_take_action(vehicle, low_level_action)
                 else: 
                     low_level_action = self.process_input('forward')
                     self.vehicle_take_action(vehicle, low_level_action)
+            
+            # rest of the vehicles should take a step 
+            for i in range(vehicles_to_exit[1], vehicle_remaining_in_queues[1]):
+                vehicle = self.right_vehicle_queue[i]
+                low_level_action = self.process_input('forward')
+                self.vehicle_take_action(vehicle, low_level_action)
         elif high_level_action == (1,0):
-            # only left_queue moves
+            side = 'left' # only left_queue moves
             for i in range(vehicles_to_exit[0]):
                 vehicle = self.left_vehicle_queue[i]
-                if self.within_box_range(vehicle) or self.vehilce_is_turning(vehicle):
+                if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
                     low_level_action = self.process_input('turnRight')
                     self.vehicle_take_action(vehicle, low_level_action)
                 else: 
                     low_level_action = self.process_input('forward')
                     self.vehicle_take_action(vehicle, low_level_action)
+            # rest of the vehicles should take a step forward
+            for i in range(vehicles_to_exit[0], vehicle_remaining_in_queues[0]):
+                vehicle = self.left_vehicle_queue[i]
+                low_level_action = self.process_input('forward')
+                self.vehicle_take_action(vehicle, low_level_action)
         else:
             # both move
-            front_vehicles = [self.left_vehicle_queue[0], self.right_vehicle_queue[0]] # the two vehicles at front
+            front_vehicles = [self.right_vehicle_queue[0], self.left_vehicle_queue[0]] # the two vehicles at front
             for i in range(2): 
-                if (not self.within_box_range(front_vehicles[i])) and (not self.vehicle_is_turning(front_vehicles[i])):
+                # right side should go first and then left, if they collide we will offset the initial step for the left side
+                if i == 0:
+                    side = "right"
+                else:
+                    side = "left"
+
+                if (not self.within_box_range(front_vehicles[i]), side) and (not self.vehicle_is_turning(front_vehicles[i])):
                     low_level_action = self.process_input('forward')
                     self.vehicle_take_action(vehicle, low_level_action)
-                elif i == 1: # on left side
+                elif i == 0: # right side
                     low_level_action = self.process_input("turnRight")
                     self.vehicle_take_action(vehicle, low_level_action)
+                     # rest of the vehicles should take a step forward
+                    for j in range(vehicles_to_exit[1], vehicle_remaining_in_queues[1]):
+                        vehicle = self.right_vehicle_queue[j]
+                        low_level_action = self.process_input('forward')
+                        self.vehicle_take_action(vehicle, low_level_action)
                 else:
                     low_level_action = self.process_input("turnLeft")
                     self.vehicle_take_action(vehicle, low_level_action)
+                    # rest of the vehicles should take a step forward
+                    for k in range(vehicles_to_exit[0], vehicle_remaining_in_queues[0]):
+                        vehicle = self.left_vehicle_queue[k]
+                        low_level_action = self.process_input('forward')
+                        self.vehicle_take_action(vehicle, low_level_action)
+           
 
         # then we check if the front of queue (both left and right) have completed turning
         # if so, remove them from the queues and increment num_vehicles_exited
@@ -377,28 +406,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         if self.vehicle_exit_check(self.right_vehicle_queue[0]):
             self.left_vehicle_queue.remove(self.right_vehicle_queue[0])
             exited += np.array([0,1])
-        
-        # TAKING ACTION IS IMPLEMENTED ABOVE
-        # Take step for the agent
-        # process_input(self, low_level_action) will provide: 
-        # array([self.steering, self.throttle_brake], dtype=np.float64)
-        ### We may talk directly to the engine of each agent as they did in the manual control
-        # In police -> manual_contorl_policy -> def(act) 
-        # -> manual_controller -> def process_input-> retunr self.steering, self.throttle_brake
-        # find where / how can we send those infor to the car or engine
-        # Solution: Use component->vehicle->base_vechicle: 
-        #           line 352 -> _set_action(action) [self.steering, self.throttle_brake]
-        #           line 360 -> _set_incremental_action(self, action: np.ndarray)
-        #           both fucntion will use _create_vehicle_chassis() -> an object class from BulletVechicle 
-        #           from library panda3d.bullet
-
-        # THIS IS IMPLEMENTED IN vehicle_exit_check
-        # Check if a vehicles has crossed the checkpoint
-        # if self.vehicle_crossed_checkpoint(vehicle):
-        #     if : # on right side
-        #         num_of_vehicles_exited += np.array([0,1])
-        #     else:# on left side
-        #         num_of_vehicles_exited += np.array([1,0])
 
         return exited
 
