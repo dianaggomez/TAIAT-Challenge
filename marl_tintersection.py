@@ -389,13 +389,16 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         return exited
 
-    def _get_reward(self, high_level_action, num_of_vehicles, fairness = False):
-        # previously: 
-        # r = -1 at each time step
-        # r = +1, if AVs exit first
-        # r = -2, if human drivers exit first
-        r = -1
-        # num_of_vehicles will be used for the reward shaping
+    def _get_reward(self, high_level_action, num_of_vehicles, done, fairness = False):
+        # Reward
+        if (done[human_index] == True).all(): # r = -2, if human drivers exit first
+            r = -2
+        elif (done[AV_index] == True).all(): # r = +1, if AVs exit first
+            r = 1
+        else: # r = -1 for each high level decision
+            r = -1
+        
+        # Reward Shaping: Fairness Reward
         if fairness:
             N_SR = 6
             N = 12
@@ -444,7 +447,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 obs.append([0,0, coalition['agent{n}'.format(n=num)]])
         o = np.array(obs)
 
-        r = self._get_reward(high_level_action, num_of_vehicles)
+        r = self._get_reward(high_level_action, num_of_vehicles, d)
 
         return o, r, d, i
 
