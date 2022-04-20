@@ -389,8 +389,34 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         return exited
 
+    def _get_reward(self, high_level_action, num_of_vehicles, fairness = False):
+        # previously: 
+        # r = -1 at each time step
+        # r = +1, if AVs exit first
+        # r = -2, if human drivers exit first
+        r = -1
+        # num_of_vehicles will be used for the reward shaping
+        if fairness:
+            N_SR = 6
+            N = 12
+            # v_pi: the no. of vehicles exiting from the AV coalition at each high_level_decision
+            if high_level_action == (0,0):
+                v_pi = 0.75 # to avoid 0
+            elif high_level_action == (0,1):
+                v_pi = num_of_vehicles[1]
+            elif high_level_action == (1,0):
+                v_pi = num_of_vehicles[0]
+            else:
+                # need to check if the vehicles that exited belong to the coaltion or human drivers
+                pass
+            r_f = (N_SR/N) * (1/v_pi)
+        else:
+            r_f = 0
+
+        reward = r + r_f
+        return reward
+
     def step(self, actions):
-        # o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
         exited = np.array([0,0])
 
         ########## High-Level Step Function (Discrete) #########
@@ -401,7 +427,10 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             pass
         else:
             while exited != num_of_vehicles: 
-                exited = self.take_step(high_level_action, num_of_vehicles, exited)
+                exited, actions = self.take_step(high_level_action, num_of_vehicles, exited)
+
+                # WE COULD POTENTIALLY CONTINUES TO FEED OUR ACTIONS INTO THE .step() and ensure the evniroment updates/renders every st
+                o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
 
         # Update observation, reward, done, and info
          #### New Observation #####
@@ -414,6 +443,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             else:
                 obs.append([0,0, coalition['agent{n}'.format(n=num)]])
         o = np.array(obs)
+
+        r = self._get_reward(high_level_action, num_of_vehicles)
 
         return o, r, d, i
 
