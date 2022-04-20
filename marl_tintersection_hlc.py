@@ -1,3 +1,4 @@
+from concurrent.futures.process import _ThreadWakeup
 import gym
 from gym import spaces
 import numpy as np
@@ -16,8 +17,19 @@ class HighLevelControllerEnv(gym.Env):
 
     def step(self, action):
         # give high level action to MultiAgentTIntersectionEnv
-        o,r,i,d = self.LowLevelControllerEnv.step(action)
-        return o, r, i, d
+        o, r, d_agents, _ = self.LowLevelControllerEnv.step(action)
+
+        # d will have done information for each agent
+
+        if (d_agents[AVs_index] == True).all(): #AVs exited 
+            d = True
+        else:
+            d = False
+
+        # we do not necessarily need info, it may be an empty dict
+        i = {}
+
+        return o, r, d, i
 
     def reset(self):
         pass
