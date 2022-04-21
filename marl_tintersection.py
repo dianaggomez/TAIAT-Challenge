@@ -113,6 +113,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         self.left_queue, self.right_queue = self.generate_queue()
         self.left_vehicle_queue, self.right_vehicle_queue = self.generate_vehicle_queue()
         self.action_offset = 5 # offset 5 steps
+        self.exited_agentID = []
 
     @staticmethod
     def default_config() -> Config:
@@ -480,11 +481,19 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         # then we check if the front of queue (both left and right) have completed turning
         # if so, remove them from the queues and increment num_vehicles_exited
         if self.vehicle_exit_check(self.left_vehicle_queue[0]):
+            self.exited_agentID.append(self.get_agentID('left',0))
             self.left_vehicle_queue.remove(self.left_vehicle_queue[0])
             exited += np.array([1,0])
         if self.vehicle_exit_check(self.right_vehicle_queue[0]):
+            self.exited_agentID.append(self.get_agentID('right',0))
             self.left_vehicle_queue.remove(self.right_vehicle_queue[0])
             exited += np.array([0,1])
+            
+        # check whether records are consistent
+        assert len(self.exited_agentID) == exited.sum()
+        # all exited vehicles move forward
+        for ID in self.exited_agentID:
+            self.process_input('forward', ID)
         
         current_actions = np.hstack((self.agents_steering, self.agents_throttle))
         assert current_actions.shape == (12,2)
