@@ -19,6 +19,7 @@ from metadrive.policy.idm_policy import WaymoIDMPolicy
 import numpy as np
 from collections import deque
 import random
+from itertools import compress 
 
 coalition = {"agent0": 0, "agent1": 0, "agent2": 1, "agent3": 0,"agent4": 1, "agent5": 0,"agent6": 0,"agent7": 1, "agent8": 1,"agent9": 1,"agent10": 0,"agent11": 1}
 
@@ -105,15 +106,15 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
     BRAKE_INCREMENT = 0.5
     BRAKE_DECAY = 0.5
 
-    def __init__(self):
-        self.vehicle_order = [0,1,2,3,4,5,11,10,9,8,7,6]
-        # steering and throttle for all agents 
-        self.agents_steering = np.zeros((12,1)) # idx corresponds to agentID
-        self.agents_throttle = np.zeros((12,1))
-        self.left_queue, self.right_queue = self.generate_queue()
-        self.left_vehicle_queue, self.right_vehicle_queue = self.generate_vehicle_queue()
-        self.action_offset = 5 # offset 5 steps
-        self.exited_agentID = []
+    # def __init__(self):
+    #     self.vehicle_order = [0,1,2,3,4,5,11,10,9,8,7,6]
+    #     # steering and throttle for all agents 
+    #     self.agents_steering = np.zeros((12,1)) # idx corresponds to agentID
+    #     self.agents_throttle = np.zeros((12,1))
+    #     self.left_queue, self.right_queue = self.generate_queue()
+    #     self.left_vehicle_queue, self.right_vehicle_queue = self.generate_vehicle_queue()
+    #     self.action_offset = 5 # offset 5 steps
+    #     self.exited_agentID = []
 
     @staticmethod
     def default_config() -> Config:
@@ -144,7 +145,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
     
     # generate the queue above but with vehicles objects 
     def generate_vehicle_queue(self):
-        all_vehicles = list(self.vehicles.items()).reverse()
+        all_vehicles = [v for v in self.vehicles.values()]
         left_vehicle_queue = deque([v for v in all_vehicles[6:]]) # 5 ~ 0 (front of queue at index 0)
         right_vehicle_queue = deque([v for v in all_vehicles[:6]]) # 11 ~ 6
         return left_vehicle_queue, right_vehicle_queue
@@ -156,6 +157,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         # Need to define front_of_queue
         if high_level_action == (0, 0):
             if front_of_queue == (2,2):
+                print("Imhere")
                 pass
             elif front_of_queue == (1,2):
                 high_level_action = (1,0)
@@ -186,6 +188,9 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 num_of_vehicles = np.array([1,1])
         elif high_level_action == (1,1):
             num_of_vehicles = np.array([1,1])
+        else:
+            high_level_action = (0,0)
+            num_of_vehicles = np.array([0,0])
 
         return high_level_action, num_of_vehicles
 
@@ -225,7 +230,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         # call further process before 
         self.further_process(steering, throttle_brake, agentID)
 
-        return np.array([self.agents_steering, self.agents_throttle[idx]], dtype=np.float64)
+        # return np.array([self.agents_steering, self.agents_throttle[idx]], dtype=np.float64)
 
     def further_process(self, steering, throttle_brake, agentID):
         idx = agentID
@@ -336,6 +341,13 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         else:
             print("Invalid side indicated.\n")
         
+    def array2dict_action(self, actions):
+        action_dict = {}
+        for i in range(12):
+            key = 'agent{n}'.format(n=i)
+            action_dict[key] = actions[i,:]
+        return action_dict
+    
     def take_step(self, high_level_action, exited, num_of_vehicles):
         vehicles_to_exit = np.abs(exited - num_of_vehicles)
         # check whether we have enough vehicles left
@@ -386,7 +398,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             
             # 3. assign actions for vehicles on the opposite side
             for i in range(len(self.left_vehicle_queue)):
-                agentID = self.get_agentID(side='left', i)
+                agentID = self.get_agentID(side='left', agentID=i)
                 self.agents_steering[agentID] = 0.
                 self.agents_throttle[agentID] = 0.
         
@@ -419,7 +431,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 
             # 3. assign actions for vehicles on the opposite side
             for i in range(len(self.right_vehicle_queue)):
-                agentID = self.get_agentID(side='right', i)
+                agentID = self.get_agentID(side='right', agentID=i)
                 self.agents_steering[agentID] = 0.
                 self.agents_throttle[agentID] = 0.
                 
@@ -497,17 +509,35 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         
         current_actions = np.hstack((self.agents_steering, self.agents_throttle))
         assert current_actions.shape == (12,2)
+        current_actions = self.array2dict_action(current_actions)
         
         return exited, current_actions
 
+    def coalition_exit_check(self, done, coalition_index) -> bool:
+        for idx in coalition_index:
+            if done['agent{n}'.format(n=idx)] != True:
+                return False
+        return True
+
     def _get_reward(self, high_level_action, num_of_vehicles, done, fairness = False):
+        all_vehicle_location = np.concatenate((np.array(self.left_queue) == 2, np.array(self.right_queue) == 2)) # [true, false ....]
+        AV_index = list(compress(self.vehicle_order, all_vehicle_location)) # get AV index from all vehciles
+        all_vehicle_location_false = np.concatenate((np.array(self.left_queue) == 1, np.array(self.left_queue) == 1))
+        human_index = list(compress(self.vehicle_order, all_vehicle_location_false))
+
         # Reward
-        if (done[human_index] == True).all(): # r = -2, if human drivers exit first
+        if self.coalition_exit_check(done, human_index): # r = -2, if human drivers exit first
             r = -2
-        elif (done[AV_index] == True).all(): # r = +1, if AVs exit first
+        elif self.coalition_exit_check(done, AV_index): # r = +1, if AVs exit first
             r = 1
         else: # r = -1 for each high level decision
             r = -1
+        # if (done[human_agent] == True).all(): # r = -2, if human drivers exit first
+        #     r = -2
+        # elif (done[AV_agent] == True).all(): # r = +1, if AVs exit first
+        #     r = 1
+        # else: # r = -1 for each high level decision
+        #     r = -1
         
         # Reward Shaping: Fairness Reward
         if fairness:
@@ -538,7 +568,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         ######## Low-Level Step Function (Continuous) ##########
         if high_level_action == (0,0):
-            pass
+            actions =self.array2dict_action(np.zeros((12,2)))
+            o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
         else:
             while exited != num_of_vehicles: 
                 exited, actions = self.take_step(high_level_action, num_of_vehicles, exited)
@@ -582,6 +613,20 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 ignore_delay_done=self.config["ignore_delay_done"],
                 target_speed=self.config["target_speed"]
             )
+        self.vehicle_order = [0,1,2,3,4,5,11,10,9,8,7,6]
+        # steering and throttle for all agents 
+        self.agents_steering = np.zeros((12,1)) # idx corresponds to agentID
+        self.agents_throttle = np.zeros((12,1))
+        self.left_queue, self.right_queue = self.generate_queue()
+        # self.left_vehicle_queue, self.right_vehicle_queue = self.generate_vehicle_queue()
+        self.left_vehicle_queue = deque([])
+        self.right_vehicle_queue = deque([])
+        self.action_offset = 5 # offset 5 steps
+        self.exited_agentID = []
+    
+    def reset(self):
+        super(MultiAgentTIntersectionEnv, self).reset()
+        # self.__init__()
     
 
 
@@ -725,9 +770,10 @@ def _vis():
         }
     env = MultiAgentTIntersectionEnv(config)
     o = env.reset()
-    print("===============================================")
-    print("vehicle num", env.vehicles.values(), type(list(env.vehicles.values())[0]))
-    print("===============================================")
+    # print("===============================================")
+    # print("vehicle num", env.vehicles.values(), type(list(env.vehicles.values())[0]))
+    # print("===============================================")
+    # env.generate_vehicle_queue()
     # print("RL agent num", len(o))
     #########
     total_r = 0
