@@ -159,8 +159,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         return left_queue, right_queue
     
     # generate the queue above but with vehicles objects 
-    def generate_vehicle_queue(self):
-        all_vehicles = [v for v in self.vehicles.values()]
+    def generate_vehicle_queue(self, vehicles):
+        all_vehicles = [v for v in vehicles.values()]
         left_vehicle_queue = deque([v for v in all_vehicles[6:]]) # 5 ~ 0 (front of queue at index 0)
         right_vehicle_queue = deque([v for v in all_vehicles[:6]]) # 11 ~ 6
         return left_vehicle_queue, right_vehicle_queue
@@ -216,15 +216,15 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         counter = 0
         if high_level_action == (0,1):
             if len(self.right_queue) > 0:
-                for i in range(min(len(self.right_queue)),3):
+                for i in range(min(len(self.right_queue),3)):
                     if self.right_queue[i] == 2:
                         counter+=1
                     else:
                         break
-            num_of_vehicles = np.rray([0,counter])
+            num_of_vehicles = np.array([0,counter])
         elif high_level_action == (1,0):
             if len(self.left_queue) > 0:
-                for i in range(min(len(self.left_queue)),3):
+                for i in range(min(len(self.left_queue),3)):
                     if self.left_queue[i] == 2:
                         counter+=1
                     else:
@@ -410,7 +410,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     self.agents_steering[agentID] = 0.
                     self.agents_throttle[agentID] = 0.
                 else:
-                    low_level_action = self.process_input('forward', agentID)
+                    self.process_input('forward', agentID)
                 # self.vehicle_take_action(vehicle, low_level_action)
             
             # 3. assign actions for vehicles on the opposite side
@@ -427,10 +427,10 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 vehicle = self.left_vehicle_queue[i]
                 agentID = self.get_agentID(side, i)
                 if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
-                    low_level_action = self.process_input('turnLeft', agentID)
+                    self.process_input('turnLeft', agentID)
                     # self.vehicle_take_action(vehicle, low_level_action)
                 else: 
-                    low_level_action = self.process_input('forward', agentID)
+                    self.process_input('forward', agentID)
                     # self.vehicle_take_action(vehicle, low_level_action)
                 
             # 2. assign actions for the rest of vehicles on this side
@@ -477,7 +477,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     # all vehicles move forward
                     for i in range(len(vehicle_queue)):
                         agentID = self.get_agentID(side, i)
-                        low_level_action = self.process_input('forward', agentID)
+                        self.process_input('forward', agentID)
                     # self.vehicle_take_action(vehicle, low_level_action)
                 
                 # scenario 2: front vehicle (single) is ready to turn 
@@ -492,7 +492,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                         self.action_offset -= 1
                         continue
                     # 1. front vehicle turns
-                    low_level_action = self.process_input(turn_action, front_agentID)
+                    self.process_input(turn_action, front_agentID)
                     # self.vehicle_take_action(vehicle, low_level_action)
                     # 2. rest of the vehicles moves forward
                     front_of_remaining_vehicles = vehicle_queue[vehicles_to_exit[i == 0]]
@@ -504,7 +504,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                             self.agents_steering[agentID] = 0.
                             self.agents_throttle[agentID] = 0.
                         else:
-                            low_level_action = self.process_input('forward', agentID)
+                            self.process_input('forward', agentID)
            
 
         # then we check if the front of queue (both left and right) have completed turning
@@ -587,13 +587,20 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         ######## Low-Level Step Function (Continuous) ##########
         if high_level_action == (0,0):
             actions =self.array2dict_action(np.zeros((12,2)))
+            print(actions)
             o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
         else:
-            while (exited != num_of_vehicles).all(): 
-                print('exited', exited)
-                print('exited', num_of_vehicles)
+            print('Need to exit', num_of_vehicles)
+            print('exited', exited)
+            while (exited != num_of_vehicles).any(): 
+                print("left", self.left_queue)
+                print("right", self.right_queue)
+                print("left", self.left_vehicle_queue)
+                print("right", self.right_vehicle_queue)
                 exited, actions = self.take_step(high_level_action, num_of_vehicles, exited)
-
+                print('exited', exited)
+                print('Need to exit', num_of_vehicles)
+                print("low-leeve action", actions)
                 # WE COULD POTENTIALLY CONTINUES TO FEED OUR ACTIONS INTO THE .step() and ensure the evniroment updates/renders every st
                 o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
 
@@ -784,7 +791,7 @@ def _vis():
                 # actions[key][1] *= -1
         # Vehicles will reach their goal and exit, therefore, we need to iterate over the k vehicles that are present
         actions = env.action_space.sample()
-        print(actions)
+        # print(actions)
         # actions = {k: [-0, 1.0] for k in env.vehicles.keys()}
         o, r, d, info = env.step(actions) # the actions are a dictionary corresponding to each vehicles so observation will also be dictiary for each vehicle's observation
         # print("Observation: ", o)
