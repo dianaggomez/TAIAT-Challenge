@@ -106,15 +106,30 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
     BRAKE_INCREMENT = 0.5
     BRAKE_DECAY = 0.5
 
-    # def __init__(self):
-    #     self.vehicle_order = [0,1,2,3,4,5,11,10,9,8,7,6]
-    #     # steering and throttle for all agents 
-    #     self.agents_steering = np.zeros((12,1)) # idx corresponds to agentID
-    #     self.agents_throttle = np.zeros((12,1))
-    #     self.left_queue, self.right_queue = self.generate_queue()
-    #     self.left_vehicle_queue, self.right_vehicle_queue = self.generate_vehicle_queue()
-    #     self.action_offset = 5 # offset 5 steps
-    #     self.exited_agentID = []
+    def __init__(self, config=None):
+        super(MultiAgentTIntersectionEnv, self).__init__(config=config)
+        self.num_RL_agents = self.config["num_RL_agents"]
+        if self.num_RL_agents == self.num_agents:  # Not using mixed traffic and only RL agents are running.
+            pass
+        else:
+            self.agent_manager = MixedIDMAgentManager(
+                init_observations=self._get_observations(),
+                init_action_space=self._get_action_space(),
+                num_RL_agents=self.num_RL_agents,
+                ignore_delay_done=self.config["ignore_delay_done"],
+                target_speed=self.config["target_speed"]
+            )
+        self.vehicle_order = [0,1,2,3,4,5,11,10,9,8,7,6]
+        # steering and throttle for all agents 
+        self.agents_steering = np.zeros((12,1)) # idx corresponds to agentID
+        self.agents_throttle = np.zeros((12,1))
+        self.left_queue, self.right_queue = self.generate_queue()
+        # self.left_vehicle_queue, self.right_vehicle_queue = self.generate_vehicle_queue()
+        self.left_vehicle_queue = deque([])
+        self.right_vehicle_queue = deque([])
+        self.action_offset = 5 # offset 5 steps
+        self.exited_agentID = []
+        self.reward = 0
 
     @staticmethod
     def default_config() -> Config:
@@ -196,6 +211,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
     def num_of_vehicles_to_exit(self, high_level_action):
         # check the side of the queue with go, up to 3 vehicles may exit
+        print(self.left_queue)
+        print(self.right_queue)
         counter = 0
         if high_level_action == (0,1):
             if len(self.right_queue) > 0:
@@ -566,12 +583,15 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         ########## High-Level Step Function (Discrete) #########
         high_level_action, num_of_vehicles = self.process_high_level_action(actions)
 
+        print("high_level_action: ", high_level_action)
         ######## Low-Level Step Function (Continuous) ##########
         if high_level_action == (0,0):
             actions =self.array2dict_action(np.zeros((12,2)))
             o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
         else:
-            while exited != num_of_vehicles: 
+            while (exited != num_of_vehicles).all(): 
+                print('exited', exited)
+                print('exited', num_of_vehicles)
                 exited, actions = self.take_step(high_level_action, num_of_vehicles, exited)
 
                 # WE COULD POTENTIALLY CONTINUES TO FEED OUR ACTIONS INTO THE .step() and ensure the evniroment updates/renders every st
@@ -589,40 +609,11 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 obs.append([0,0, coalition['agent{n}'.format(n=num)]])
         o = np.array(obs)
 
-        r = self._get_reward(high_level_action, num_of_vehicles, d)
+        self.reward = self._get_reward(high_level_action, num_of_vehicles, d)
 
         return o, r, d, i
 
-    # def _preprocess_actions(self, actions):
-    #     if self.num_RL_agents == self.num_agents:
-    #         return super(MultiAgentTIntersectionEnv, self)._preprocess_actions(actions)
-
-    #     actions = {v_id: actions[v_id] for v_id in self.vehicles.keys() if v_id in self.agent_manager.RL_agents}
-    #     return actions
-
-    def __init__(self, config=None):
-        super(MultiAgentTIntersectionEnv, self).__init__(config=config)
-        self.num_RL_agents = self.config["num_RL_agents"]
-        if self.num_RL_agents == self.num_agents:  # Not using mixed traffic and only RL agents are running.
-            pass
-        else:
-            self.agent_manager = MixedIDMAgentManager(
-                init_observations=self._get_observations(),
-                init_action_space=self._get_action_space(),
-                num_RL_agents=self.num_RL_agents,
-                ignore_delay_done=self.config["ignore_delay_done"],
-                target_speed=self.config["target_speed"]
-            )
-        self.vehicle_order = [0,1,2,3,4,5,11,10,9,8,7,6]
-        # steering and throttle for all agents 
-        self.agents_steering = np.zeros((12,1)) # idx corresponds to agentID
-        self.agents_throttle = np.zeros((12,1))
-        self.left_queue, self.right_queue = self.generate_queue()
-        # self.left_vehicle_queue, self.right_vehicle_queue = self.generate_vehicle_queue()
-        self.left_vehicle_queue = deque([])
-        self.right_vehicle_queue = deque([])
-        self.action_offset = 5 # offset 5 steps
-        self.exited_agentID = []
+    
     
     def reset(self):
         super(MultiAgentTIntersectionEnv, self).reset()
