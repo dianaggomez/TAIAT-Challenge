@@ -58,6 +58,8 @@ class HighLevelControllerEnv(gym.Env):
         d = self.done(d_agents)
         # we do not necessarily need info, it may be an empty dict
         i = {}
+        # get reward
+        r = self.LowLevelControllerEnv
 
         return o, r, d, i
 
