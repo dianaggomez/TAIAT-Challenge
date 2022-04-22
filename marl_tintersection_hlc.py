@@ -36,6 +36,10 @@ class HighLevelControllerEnv(gym.Env):
             "num_RL_agents" : 0,
         }
         environment = MultiAgentTIntersectionEnv(config)
+        environment.reset()
+        vehicles = environment.vehicles
+        print("Vehicles!!!! ", environment.vehicles)
+        environment.generate_vehicle_queue(vehicles)
         return environment
 
     def done(self, d_agents):
@@ -77,8 +81,11 @@ class HighLevelControllerEnv(gym.Env):
 
 if __name__ == "__main__":
     env = HighLevelControllerEnv()
-    print((env.observation_space).shape)
-    action = env.action_space.sample()
-    print(action)
+
+    # print((env.observation_space).shape)
+    # action = env.action_space.sample()
+    action = (0,1)
+    print("Original High Level Action", action)
     env.step(action)
+
 
