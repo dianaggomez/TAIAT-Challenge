@@ -107,7 +107,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
     BRAKE_INCREMENT = 0.5
     BRAKE_DECAY = 0.5
 
-    STOP_DIST = 6.0
+    STOP_DIST = 8.0 #6.0
 
     def __init__(self, config=None):
         super(MultiAgentTIntersectionEnv, self).__init__(config=config)
@@ -157,11 +157,13 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         return self.agent_manager.filter_RL_agents(org)
     #################################################################################
     def generate_queue(self):
-        queue = [1]*6 + [2]*6
-        random.seed(5)
-        random.shuffle(queue)
-        left_queue = deque(queue[:len(queue)//2])
-        right_queue = deque(queue[len(queue)//2:])
+        # queue = [1]*6 + [2]*6
+        # random.seed(13)
+        # random.shuffle(queue)
+        # left_queue = deque(queue[:len(queue)//2])
+        # right_queue = deque(queue[len(queue)//2:])
+        left_queue = deque([2, 2, 1, 2, 1])
+        right_queue = deque([2, 2, 1, 2, 1, 1])
         return left_queue, right_queue
     
     # generate the queue above but with vehicles objects 
@@ -316,7 +318,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             print("X value", x)
             print("Difference = ", x_checkpoint - x)
             print("Inside left")
-            if ((x_checkpoint - x)> self.STOP_DIST or (x_checkpoint - x) == self.STOP_DIST):
+            if ((x_checkpoint - x)< self.STOP_DIST or (x_checkpoint - x) == self.STOP_DIST):
                 return True
             else:
                 return False
@@ -352,7 +354,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             print("X value", x)
             print("Difference = ", x_checkpoint - x)
             print("Inside left")
-            if ((x_checkpoint - x)> -13 and (x_checkpoint - x)<-2.):
+            if ((x_checkpoint - x)==7 or (x_checkpoint - x)<7):
                 print("Met Condition")
                 return True
             else:
@@ -493,20 +495,31 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         # first we check the high_level actions
         ################################# RIGHT ONLY #################################
-        if high_level_action == (0,1):
-            side = 'right'# only right queue 
-            # 1. assign actions for turning vehicles on this side
-            for i in range(vehicles_to_exit[1]):
-                vehicle = self.right_vehicle_queue[i] # initialized in generate_vehicle_queue
-                agentID = self.get_agentID(side, i)
-                if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
-                    print("Within box range: ", self.within_box_range(vehicle, side))
-                    # when a vehicle reaches 1st checkpoint or is in the process of turning
-                    self.process_input('turnRight', agentID)
-                    # self.vehicle_take_action(vehicle, low_level_action)
-                else: 
-                    self.process_input('forward', agentID)
-                    # self.vehicle_take_action(vehicle, low_level_action)
+            if high_level_action == (0,1):
+                for i in range(vehicles_to_exit[0]):
+                    print("i", i)
+                    vehicle = self.left_vehicle_queue[i]
+                    agentID = self.get_agentID(side, i)
+                    if self.within_box_range(vehicle, side):
+                        policy = IDMPolicy(vehicle,random.seed(agentID))
+                        action = policy.act(agentID)
+                        print("Action from IDM ", action)
+                        self.agents_steering[agentID], self.agents_throttle[agentID] = action
+                    else:
+                        self.process_input('forward', agentID)
+        #     side = 'right'# only right queue 
+        #     # 1. assign actions for turning vehicles on this side
+        #     for i in range(vehicles_to_exit[1]):
+        #         vehicle = self.right_vehicle_queue[i] # initialized in generate_vehicle_queue
+        #         agentID = self.get_agentID(side, i)
+        #         if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
+        #             print("Within box range: ", self.within_box_range(vehicle, side))
+        #             # when a vehicle reaches 1st checkpoint or is in the process of turning
+        #             self.process_input('turnRight', agentID)
+        #             # self.vehicle_take_action(vehicle, low_level_action)
+        #         else: 
+        #             self.process_input('forward', agentID)
+        #             # self.vehicle_take_action(vehicle, low_level_action)
             
             # 2. assign actions for the rest of vehicles on this side
             front_of_remaining_vehicles = self.right_vehicle_queue[vehicles_to_exit[1]]
@@ -543,15 +556,28 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             side = 'left' # only left_queue moves
             # 1. assign actions for turning vehicles on this side
             for i in range(vehicles_to_exit[0]):
+                print("i", i)
                 vehicle = self.left_vehicle_queue[i]
                 agentID = self.get_agentID(side, i)
-                if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
-                    self.process_input('turnLeft', agentID)
-                    # self.vehicle_take_action(vehicle, low_level_action)
-                else: 
-                    print("going forward")
-                    self.process_input('forward', agentID)
-                    # self.vehicle_take_action(vehicle, low_level_action)
+                if self.within_box_range(vehicle, side):
+                    policy = IDMPolicy(vehicle,random.seed(agentID))
+                    action = policy.act(agentID)
+                    print("Action from IDM ", action)
+                    self.agents_steering[agentID], self.agents_throttle[agentID] = action
+            else:
+                self.process_input('forward', agentID)
+            #     if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
+            # for i in range(vehicles_to_exit[0]):
+            #     vehicle = self.left_vehicle_queue[i]
+            #     agentID = self.get_agentID(side, i)
+                
+            #     if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
+            #         # self.process_input('turnLeft', agentID)
+            #         # self.vehicle_take_action(vehicle, low_level_action)
+            #     else: 
+            #         print("going forward")
+            #         self.process_input('forward', agentID)
+            #         # self.vehicle_take_action(vehicle, low_level_action)
                 
             # 2. assign actions for the rest of vehicles on this side
             front_of_remaining_vehicles = self.left_vehicle_queue[vehicles_to_exit[0]]
@@ -566,6 +592,10 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     self.agents_steering[agentID] = 0.
                     self.agents_throttle[agentID] = -1.
                 else:
+                    # policy = IDMPolicy(vehicle,random.seed(0))
+                    # action = policy.act(agentID)
+                    # print("Action from IDM ", action)
+                    # self.agents_steering[agentID], self.agents_throttle[agentID] = action
                     self.process_input('forward', agentID)
                 # self.vehicle_take_action(vehicle, low_level_action)
                 
