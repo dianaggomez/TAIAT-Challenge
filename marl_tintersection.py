@@ -135,6 +135,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         self.exited_agentID = []
         self.reward = 0
         self.right_cleared = False
+        self.agents_policy = {}
 
     @staticmethod
     def default_config() -> Config:
@@ -183,6 +184,17 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         for vehicle in self.right_queue:
             string += str(vehicle) +"|"
         print(string)
+    
+    def assign_idm_policy(self):
+        for i in range(len(self.left_vehicle_queue)):
+            vehicle = self.left_vehicle_queue[i]
+            agentID = self.get_agentID("left", i)
+            self.agents_policy[agentID] = IDMPolicy(vehicle,random.seed(0))
+        for i in range(len(self.right_vehicle_queue)):
+            vehicle = self.right_vehicle_queue[i]
+            agentID = self.get_agentID("right", i)
+            self.agents_policy[agentID] = IDMPolicy(vehicle,random.seed(0))
+        print(self.agents_policy)
 
     def process_high_level_action(self, high_level_action):
         # high-level actions: (0,0), (1,0), (0,1), (1,1)
@@ -354,7 +366,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             print("X value", x)
             print("Difference = ", x_checkpoint - x)
             print("Inside left")
-            if ((x_checkpoint - x)==7 or (x_checkpoint - x)<7):
+            if ((x_checkpoint - x)==8 or (x_checkpoint - x)<8):
                 print("Met Condition")
                 return True
             else:
@@ -501,8 +513,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     vehicle = self.left_vehicle_queue[i]
                     agentID = self.get_agentID(side, i)
                     if self.within_box_range(vehicle, side):
-                        policy = IDMPolicy(vehicle,random.seed(agentID))
-                        action = policy.act(agentID)
+                        action = self.agents_policy[agentID].act(agentID)
                         print("Action from IDM ", action)
                         self.agents_steering[agentID], self.agents_throttle[agentID] = action
                     else:
@@ -560,8 +571,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 vehicle = self.left_vehicle_queue[i]
                 agentID = self.get_agentID(side, i)
                 if self.within_box_range(vehicle, side):
-                    policy = IDMPolicy(vehicle,random.seed(agentID))
-                    action = policy.act(agentID)
+                    # policy = IDMPolicy(vehicle,random.seed(agentID))
+                    action = self.agents_policy[agentID].act(agentID)
                     print("Action from IDM ", action)
                     self.agents_steering[agentID], self.agents_throttle[agentID] = action
             else:
@@ -592,8 +603,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     self.agents_steering[agentID] = 0.
                     self.agents_throttle[agentID] = -1.
                 else:
-                    # policy = IDMPolicy(vehicle,random.seed(0))
-                    # action = policy.act(agentID)
+                    # action = self.agents_policy[agentID].act(agentID)
                     # print("Action from IDM ", action)
                     # self.agents_steering[agentID], self.agents_throttle[agentID] = action
                     self.process_input('forward', agentID)
