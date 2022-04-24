@@ -44,14 +44,15 @@ class HighLevelControllerEnv(gym.Env):
         return environment
 
     def done(self, d_agents):
+        print("done of agents", d_agents)
         left_array = np.array(self.LowLevelControllerEnv.orig_left_queue)
         right_array = np.array(self.LowLevelControllerEnv.orig_right_queue)
 
         vehicle_order = self.LowLevelControllerEnv.vehicle_order # [0,1,2,3,4,5,11,10,9,8,7,6]
         all_vehicle_location = np.concatenate((list(left_array == 2), list(right_array == 2))) # [true, false ....]
         AVs_index = list(compress(vehicle_order, all_vehicle_location)) # get AV index from all vehciles
-
-        if (np.array(list(d_agents.values()))[AVs_index]==True).all():
+        print("Conditional ", np.array(list(d_agents.values()))[AVs_index].all())
+        if (np.array(list(d_agents.values()))[AVs_index]).all():
             return True
         else:
             return False
@@ -61,6 +62,7 @@ class HighLevelControllerEnv(gym.Env):
         o, r, d_agents, _ = self.LowLevelControllerEnv.step(action)
         # d will have done information for each agent
         d = self.done(d_agents)
+        print("done ", d)
         # we do not necessarily need info, it may be an empty dict
         i = {}
         # get reward
@@ -98,8 +100,8 @@ if __name__ == "__main__":
     # print("Original High Level Action", action)
     # env.step(action)
     done = False
-    while not done:
+    while done == False:
         action = env.action_space.sample()
         print("High Level Action ", action)
-        o, done, i, r = env.step(action)        
+        o, r, done, i = env.step(action)  
 
