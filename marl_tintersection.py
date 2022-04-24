@@ -556,6 +556,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             # 2. assign actions for the rest of vehicles on this side
             front_of_remaining_vehicles = self.left_vehicle_queue[vehicles_to_exit[0]]
             if self.before_box_range(front_of_remaining_vehicles, side):
+                print("Left before box range: ", self.before_box_range(front_of_remaining_vehicles, side))
                 self.rest_should_stop = True
             for i in range(vehicles_to_exit[0],len(self.left_vehicle_queue)): # i represents position in the queue
                 vehicle = self.left_vehicle_queue[i]
