@@ -540,11 +540,18 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     # if self.within_box_range(vehicle, side):
 
             # 2. assign actions for the rest of vehicles on this side
-            if len(self.right_vehicle_queue) >vehicles_to_exit[1]:
+            if len(self.right_vehicle_queue) > vehicles_to_exit[1]:
                 front_of_remaining_vehicles = self.right_vehicle_queue[vehicles_to_exit[1]]
+                frv_agentID = self.get_agentID(side, vehicles_to_exit[1])
                 if self.before_box_range(front_of_remaining_vehicles, side):
-                    self.rest_should_stop = True
-                for i in range(vehicles_to_exit[1],len(self.right_vehicle_queue)): # i represents position in the queue
+                    self.agents_steering[frv_agentID] = 0
+                    self.agents_throttle[frv_agentID] = -1
+                    # self.rest_should_stop = True
+                else:
+                    action = self.agents_policy[frv_agentID].act(frv_agentID)
+                    self.agents_steering[frv_agentID], self.agents_throttle[frv_agentID] = action
+            if len(self.right_vehicle_queue) > (vehicles_to_exit[1] + 1):
+                for i in range(vehicles_to_exit[1] + 1,len(self.right_vehicle_queue)): # i represents position in the queue
                     """
                     NOTE: Vehicle that are turning would still be in the queue. 
                         They are only popped out when they finish turning. Thus 
@@ -566,10 +573,23 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                         self.agents_steering[agentID], self.agents_throttle[agentID] = action
             
             # 3. assign actions for vehicles on the opposite side
-            for i in range(len(self.left_vehicle_queue)):
-                agentID = self.get_agentID('left', i)
-                self.agents_steering[agentID] = 0.
-                self.agents_throttle[agentID] = -1.
+            if len(self.left_vehicle_queue) > 0:
+                opposite_front_vehicle = self.left_vehicle_queue[0]
+                ofv_agentID = self.get_agentID('left', 0)
+                if self.before_box_range(opposite_front_vehicle, 'left'):
+                    self.agents_steering[ofv_agentID] = 0
+                    self.agents_throttle[ofv_agentID] = -1
+                    # self.rest_should_stop = True
+                else:
+                    action = self.agents_policy[ofv_agentID].act(ofv_agentID)
+                    self.agents_steering[ofv_agentID], self.agents_throttle[ofv_agentID] = action
+            if len(self.left_vehicle_queue) > 1:
+                for i in range(1,len(self.left_vehicle_queue)):
+                    agentID = self.get_agentID('left', i)
+                    action = self.agents_policy[agentID].act(agentID)
+                    self.agents_steering[agentID], self.agents_throttle[agentID] = action
+                    # self.agents_steering[agentID] = 0.
+                    # self.agents_throttle[agentID] = -1.
         
         ################################# LEFT ONLY #################################
         elif high_level_action == (1,0):
@@ -582,10 +602,16 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
       
             if len(self.left_vehicle_queue) > vehicles_to_exit[0]:
                 front_of_remaining_vehicles = self.left_vehicle_queue[vehicles_to_exit[0]]
+                frv_agentID = self.get_agentID(side, vehicles_to_exit[0])
                 if self.before_box_range(front_of_remaining_vehicles, side):
-                    print("Left before box range: ", self.before_box_range(front_of_remaining_vehicles, side))
-                    self.rest_should_stop = True
-                for i in range(vehicles_to_exit[0],len(self.left_vehicle_queue)): # i represents position in the queue
+                    self.agents_steering[frv_agentID] = 0
+                    self.agents_throttle[frv_agentID] = -1
+                    # self.rest_should_stop = True
+                else:
+                    action = self.agents_policy[frv_agentID].act(frv_agentID)
+                    self.agents_steering[frv_agentID], self.agents_throttle[frv_agentID] = action
+            if len(self.left_vehicle_queue) > (vehicles_to_exit[0] + 1):
+                for i in range(vehicles_to_exit[0]+1,len(self.left_vehicle_queue)): # i represents position in the queue
                     agentID = self.get_agentID(side, i)
                     # if the front of the remaing vehicles is already at the intersection
                     if self.rest_should_stop:
@@ -598,10 +624,23 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                         self.agents_steering[agentID], self.agents_throttle[agentID] = action
             
             # 3. assign actions for vehicles on the opposite side
-            for i in range(len(self.right_vehicle_queue)):
-                agentID = self.get_agentID('right', i)
-                self.agents_steering[agentID] = 0.
-                self.agents_throttle[agentID] = -1.
+            if len(self.right_vehicle_queue) > 0:
+                opposite_front_vehicle = self.right_vehicle_queue[0]
+                ofv_agentID = self.get_agentID('right', 0)
+                if self.before_box_range(opposite_front_vehicle, 'right'):
+                    self.agents_steering[ofv_agentID] = 0
+                    self.agents_throttle[ofv_agentID] = -1
+                    # self.rest_should_stop = True
+                else:
+                    action = self.agents_policy[ofv_agentID].act(ofv_agentID)
+                    self.agents_steering[ofv_agentID], self.agents_throttle[ofv_agentID] = action
+            if len(self.right_vehicle_queue) > 1:
+                for i in range(1,len(self.right_vehicle_queue)):
+                    agentID = self.get_agentID('right', i)
+                    action = self.agents_policy[agentID].act(agentID)
+                    self.agents_steering[agentID], self.agents_throttle[agentID] = action
+                    # self.agents_steering[agentID] = 0.
+                    # self.agents_throttle[agentID] = -1.
 
                 
         ################################# BOTH SIDES #################################
@@ -614,16 +653,22 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     if len(self.right_vehicle_queue)>0:
                         front_right_vehicle = self.right_vehicle_queue[0]
 
-                        agentID = self.get_agentID(side, agents)
+                        agentID = self.get_agentID(side, 0)
                         action = self.agents_policy[agentID].act(agentID)
                         self.agents_steering[agentID], self.agents_throttle[agentID] = action
 
-                        if len(self.right_vehicle_queue) > vehicles_to_exit[0]:
-                            
+                        if len(self.right_vehicle_queue) > vehicles_to_exit[1]:
                             front_of_remaining_vehicles = self.right_vehicle_queue[vehicles_to_exit[1]]
+                            frv_agentID = self.get_agentID(side, vehicles_to_exit[1])
                             if self.before_box_range(front_of_remaining_vehicles, side):
-                                self.rest_should_stop = True
-                            for j in range(vehicles_to_exit[1],len(self.right_vehicle_queue)): # i represents position in the queue
+                                self.agents_steering[frv_agentID] = 0
+                                self.agents_throttle[frv_agentID] = -1
+                                # self.rest_should_stop = True
+                            else:
+                                action = self.agents_policy[frv_agentID].act(frv_agentID)
+                                self.agents_steering[frv_agentID], self.agents_throttle[frv_agentID] = action
+                        if len(self.right_vehicle_queue) > (vehicles_to_exit[1] + 1):
+                            for j in range(vehicles_to_exit[1]+1,len(self.right_vehicle_queue)): # i represents position in the queue
                                 agentID = self.get_agentID(side, j)
                                 # if the front of the remaing vehicles is already at the intersection
                                 if self.rest_should_stop:
@@ -635,11 +680,25 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                                     print("Action from IDM ", action)
                                     self.agents_steering[agentID], self.agents_throttle[agentID] = action
                             
-                        # 3. assign actions for vehicles on the opposite side
-                        for k in range(len(self.left_vehicle_queue)):
-                            agentID = self.get_agentID('left', k)
-                            self.agents_steering[agentID] = 0.
-                            self.agents_throttle[agentID] = -1.
+                        # assign actions for vehicles on the opposite side
+                        if len(self.left_vehicle_queue) > 0:
+                            opposite_front_vehicle = self.left_vehicle_queue[0]
+                            ofv_agentID = self.get_agentID('left', 0)
+                            if self.before_box_range(opposite_front_vehicle, 'left'):
+                                self.agents_steering[ofv_agentID] = 0
+                                self.agents_throttle[ofv_agentID] = -1
+                            else:
+                                action = self.agents_policy[ofv_agentID].act(ofv_agentID)
+                                self.agents_steering[ofv_agentID], self.agents_throttle[ofv_agentID] = action
+                        if len(self.left_vehicle_queue) > 1:
+                            for i in range(1,len(self.left_vehicle_queue)):
+                                agentID = self.get_agentID('left', i)
+                                action = self.agents_policy[agentID].act(agentID)
+                                self.agents_steering[agentID], self.agents_throttle[agentID] = action
+                        # for k in range(len(self.left_vehicle_queue)):
+                        #     agentID = self.get_agentID('left', k)
+                        #     self.agents_steering[agentID] = 0.
+                        #     self.agents_throttle[agentID] = -1.
 
                 else:
                     ######## USING IDM ########
@@ -661,9 +720,16 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
                             if len(self.left_vehicle_queue) > vehicles_to_exit[0]:
                                 front_of_remaining_vehicles = self.left_vehicle_queue[vehicles_to_exit[0]]
+                                frv_agentID = self.get_agentID(side, vehicles_to_exit[0])
                                 if self.before_box_range(front_of_remaining_vehicles, side):
-                                    self.rest_should_stop = True
-                                for j in range(vehicles_to_exit[0],len(self.left_vehicle_queue)): # i represents position in the queue
+                                    self.agents_steering[frv_agentID] = 0
+                                    self.agents_throttle[frv_agentID] = -1
+                                    # self.rest_should_stop = True
+                                else:
+                                    action = self.agents_policy[frv_agentID].act(frv_agentID)
+                                    self.agents_steering[frv_agentID], self.agents_throttle[frv_agentID] = action
+                            if len(self.left_vehicle_queue) > (vehicles_to_exit[0] + 1):
+                                for j in range(vehicles_to_exit[0]+1,len(self.left_vehicle_queue)): # i represents position in the queue
                                     agentID = self.get_agentID(side, j)
                                     # if the front of the remaing vehicles is already at the intersection
                                     if self.rest_should_stop:
@@ -675,26 +741,37 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                                         print("Action from IDM ", action)
                                         self.agents_steering[agentID], self.agents_throttle[agentID] = action
                                 
-                            # 3. assign actions for vehicles on the opposite side
-                            for k in range(len(self.right_vehicle_queue)):
-                                agentID = self.get_agentID('right', k)
-                                self.agents_steering[agentID] = 0.
-                                self.agents_throttle[agentID] = -1.
+                            # assign actions for vehicles on the opposite side
+                            if len(self.right_vehicle_queue) > 0:
+                                opposite_front_vehicle = self.right_vehicle_queue[0]
+                                ofv_agentID = self.get_agentID('right', 0)
+                                if self.before_box_range(opposite_front_vehicle, 'right'):
+                                    self.agents_steering[ofv_agentID] = 0
+                                    self.agents_throttle[ofv_agentID] = -1
+                                else:
+                                    action = self.agents_policy[ofv_agentID].act(ofv_agentID)
+                                    self.agents_steering[ofv_agentID], self.agents_throttle[ofv_agentID] = action
+                            if len(self.right_vehicle_queue) > 1:
+                                for i in range(1,len(self.right_vehicle_queue)):
+                                    agentID = self.get_agentID('right', i)
+                                    action = self.agents_policy[agentID].act(agentID)
+                                    self.agents_steering[agentID], self.agents_throttle[agentID] = action
+                            # for k in range(len(self.right_vehicle_queue)):
+                            #     agentID = self.get_agentID('right', k)
+                            #     self.agents_steering[agentID] = 0.
+                            #     self.agents_throttle[agentID] = -1.
                 
                 if side == "right" and len(self.right_vehicle_queue) > 0 and self.pass_top_checkpoint(front_right_vehicle, side):
                     self.right_cleared = True  
-                                
 
-        print(self.left_vehicle_queue[0].position, self.right_vehicle_queue[0].position)
-        print(self.get_agentID('left',0), self.get_agentID('right',0))
         # then we check if the front of queue (both left and right) have completed turning
         # if so, remove them from the queues and increment num_vehicles_exited
-        if self.vehicle_exit_check(self.left_vehicle_queue[0], "left"):
+        if len(self.left_vehicle_queue) > 0 and self.vehicle_exit_check(self.left_vehicle_queue[0], "left"):
             self.exited_agentID.append(self.get_agentID('left',0))
             self.left_vehicle_queue.remove(self.left_vehicle_queue[0]) # remove first vehicle in queue
             self.left_queue.popleft()
             exited += np.array([1,0])
-        if self.vehicle_exit_check(self.right_vehicle_queue[0], "right"):
+        if len(self.right_vehicle_queue) > 0 and self.vehicle_exit_check(self.right_vehicle_queue[0], "right"):
             self.exited_agentID.append(self.get_agentID('right',0))
             print("Vehicle to be popped off:", self.right_vehicle_queue[0])
             self.right_vehicle_queue.remove(self.right_vehicle_queue[0]) # remove first vehicle in queue
