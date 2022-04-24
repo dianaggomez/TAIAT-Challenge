@@ -203,8 +203,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         # Need to define front_of_queue
         if high_level_action == (0, 0):
             if front_of_queue == (2,2):
-                print("Imhere")
-                pass
+                num_of_vehicles = np.array([0,0])
             elif front_of_queue == (1,2):
                 high_level_action = (1,0)
                 num_of_vehicles = np.array([1,0])
@@ -546,7 +545,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 if self.rest_should_stop:
                     self.agents_steering[agentID] = 0.
                     self.agents_throttle[agentID] = -1.
-                    self.rest_should_stop = False
+                    # self.rest_should_stop = False
                 else:
                     action = self.agents_policy[agentID].act(agentID)
                     print("Action from IDM ", action)
@@ -610,7 +609,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 if self.rest_should_stop:
                     self.agents_steering[agentID] = 0.
                     self.agents_throttle[agentID] = -1.
-                    self.rest_should_stop = False
+                    # self.rest_should_stop = False
                 else:
                     action = self.agents_policy[agentID].act(agentID)
                     print("Action from IDM ", action)
@@ -643,64 +642,129 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     front_agentID = self.get_agentID(side, 0)
                     turn_action = "turnRight"
                     delay = False # for offset
+
+                    for i in range(len(self.right_vehicle_queue)):
+                        agentID = self.get_agentID(side, i)
+                        if not self.rest_should_stop:
+                            action = self.agents_policy[agentID].act(agentID)
+                            self.agents_steering[agentID], self.agents_throttle[agentID] = action
+
+                    front_of_remaining_vehicles = self.left_vehicle_queue[vehicles_to_exit[0]]
+                    if self.before_box_range(front_of_remaining_vehicles, side):
+                        print("Left before box range: ", self.before_box_range(front_of_remaining_vehicles, side))
+                        self.rest_should_stop = True
+                    for i in range(vehicles_to_exit[0],len(self.left_vehicle_queue)): # i represents position in the queue
+                        agentID = self.get_agentID(side, i)
+                        # if the front of the remaing vehicles is already at the intersection
+                        if self.rest_should_stop:
+                            self.agents_steering[agentID] = 0.
+                            self.agents_throttle[agentID] = -1.
+                            # self.rest_should_stop = False
+                        else:
+                            action = self.agents_policy[agentID].act(agentID)
+                            print("Action from IDM ", action)
+                            self.agents_steering[agentID], self.agents_throttle[agentID] = action
+                        
+                    # 3. assign actions for vehicles on the opposite side
+                    for i in range(len(self.right_vehicle_queue)):
+                        agentID = self.get_agentID('right', i)
+                        self.agents_steering[agentID] = 0.
+                        self.agents_throttle[agentID] = -1.
+
                 else:
+                    ######## USING IDM ########
+                    #left  
                     side = "left"
                     vehicle_queue = self.left_vehicle_queue
                     front_vehicle = self.left_vehicle_queue[0]
                     front_agentID = self.get_agentID(side, 0)
                     turn_action = "turnLeft"
                     delay = True
-                
-                # scenario 1: front vehicle is not at the intersection yet
-                if side == "right" and (not self.within_box_range(front_vehicle, side)) and (not self.vehicle_is_turning(front_vehicle)):
-                    print("Right turn")
-                    # all vehicles move forward
-                    for i in range(len(vehicle_queue)):
+
+                    for i in range(len(self.left_vehicle_queue)):
                         agentID = self.get_agentID(side, i)
-                        self.process_input('forward', agentID)
-                
-                # scenario 2: front vehicle (single) is ready to turn 
-                else:
-                    print(side, " is going and delay: ", delay, "and right_cleared: ", self.right_cleared)
-                    # Optional: Offset actions from the left side if delay is set to true
-                    if delay and not(self.right_cleared):
-                        for i in range(len(vehicle_queue)):
-                            vehicle = vehicle_queue[i]
-                            agentID = self.get_agentID(side, i)
-                            self.agents_steering[agentID] = 0.
-                            self.agents_throttle[agentID] = -0.1
-                        #     # if delay and (self.action_offset != 0):
-                        # #     print("in delay portion")
-                        # #     for i in range(len(vehicle_queue)):
-                        # #         vehicle = vehicle_queue[i]
-                        # #         agentID = self.get_agentID(side, i)
-                        # #         self.agents_steering[agentID] = 0.
-                        # #         self.agents_throttle[agentID] = -0.1
-                        # #     self.action_offset -= 1
-                        #     continue # the loop ends early
-                    else:
-                        if (not self.within_box_range(front_vehicle, side)) and (not self.vehicle_is_turning(front_vehicle)):
-                        # all vehicles move forward
-                            for i in range(len(vehicle_queue)):
-                                agentID = self.get_agentID(side, i)
-                                self.process_input('forward', agentID)
+                        if delay and not(self.right_cleared):
+                            action = self.agents_policy[agentID].act(agentID)
+                            self.agents_steering[agentID], self.agents_throttle[agentID] = action
                         else:
-                            # 1. front vehicle turns
-                            self.process_input(turn_action, front_agentID)
-                            # self.vehicle_take_action(vehicle, low_level_action)
-                            # 2. rest of the vehicles moves forward
-                            front_of_remaining_vehicles = vehicle_queue[vehicles_to_exit[int(i == 0)]]
-                            if self.before_box_range(front_of_remaining_vehicles, side):
-                                self.rest_should_stop = True
-                            for i in range(vehicles_to_exit[int(i == 0)],len(vehicle_queue)):
-                                vehicle = vehicle_queue[i]
-                                agentID = self.get_agentID(side, i)
-                                # if the front of the remaing vehicles is already at the intersection
-                                if self.rest_should_stop:
-                                    self.agents_steering[agentID] = 0.
-                                    self.agents_throttle[agentID] = -1.
-                                else:
-                                    self.process_input('forward', agentID)
+                            self.agents_steering[agentID] = 0.
+                            self.agents_throttle[agentID] = -1.
+
+                    front_of_remaining_vehicles = self.left_vehicle_queue[vehicles_to_exit[0]]
+                    if self.before_box_range(front_of_remaining_vehicles, side):
+                        print("Left before box range: ", self.before_box_range(front_of_remaining_vehicles, side))
+                        self.rest_should_stop = True
+                    for i in range(vehicles_to_exit[0],len(self.left_vehicle_queue)): # i represents position in the queue
+                        agentID = self.get_agentID(side, i)
+                        # if the front of the remaing vehicles is already at the intersection
+                        if self.rest_should_stop:
+                            self.agents_steering[agentID] = 0.
+                            self.agents_throttle[agentID] = -1.
+                            # self.rest_should_stop = False
+                        else:
+                            action = self.agents_policy[agentID].act(agentID)
+                            print("Action from IDM ", action)
+                            self.agents_steering[agentID], self.agents_throttle[agentID] = action
+                        
+                    # 3. assign actions for vehicles on the opposite side
+                    for i in range(len(self.right_vehicle_queue)):
+                        agentID = self.get_agentID('right', i)
+                        self.agents_steering[agentID] = 0.
+                        self.agents_throttle[agentID] = -1.
+                    
+                
+
+                # ########################################
+                # # scenario 1: front vehicle is not at the intersection yet
+                # if side == "right" and (not self.within_box_range(front_vehicle, side)) and (not self.vehicle_is_turning(front_vehicle)):
+                #     print("Right turn")
+                #     # all vehicles move forward
+                #     for i in range(len(vehicle_queue)):
+                #         agentID = self.get_agentID(side, i)
+                #         self.process_input('forward', agentID)
+                
+                # # scenario 2: front vehicle (single) is ready to turn 
+                # else:
+                #     print(side, " is going and delay: ", delay, "and right_cleared: ", self.right_cleared)
+                #     # Optional: Offset actions from the left side if delay is set to true
+                #     if delay and not(self.right_cleared):
+                #         for i in range(len(vehicle_queue)):
+                #             vehicle = vehicle_queue[i]
+                #             agentID = self.get_agentID(side, i)
+                #             self.agents_steering[agentID] = 0.
+                #             self.agents_throttle[agentID] = -0.1
+                #         #     # if delay and (self.action_offset != 0):
+                #         # #     print("in delay portion")
+                #         # #     for i in range(len(vehicle_queue)):
+                #         # #         vehicle = vehicle_queue[i]
+                #         # #         agentID = self.get_agentID(side, i)
+                #         # #         self.agents_steering[agentID] = 0.
+                #         # #         self.agents_throttle[agentID] = -0.1
+                #         # #     self.action_offset -= 1
+                #         #     continue # the loop ends early
+                #     else:
+                #         if (not self.within_box_range(front_vehicle, side)) and (not self.vehicle_is_turning(front_vehicle)):
+                #         # all vehicles move forward
+                #             for i in range(len(vehicle_queue)):
+                #                 agentID = self.get_agentID(side, i)
+                #                 self.process_input('forward', agentID)
+                #         else:
+                #             # 1. front vehicle turns
+                #             self.process_input(turn_action, front_agentID)
+                #             # self.vehicle_take_action(vehicle, low_level_action)
+                #             # 2. rest of the vehicles moves forward
+                #             front_of_remaining_vehicles = vehicle_queue[vehicles_to_exit[int(i == 0)]]
+                #             if self.before_box_range(front_of_remaining_vehicles, side):
+                #                 self.rest_should_stop = True
+                #             for i in range(vehicles_to_exit[int(i == 0)],len(vehicle_queue)):
+                #                 vehicle = vehicle_queue[i]
+                #                 agentID = self.get_agentID(side, i)
+                #                 # if the front of the remaing vehicles is already at the intersection
+                #                 if self.rest_should_stop:
+                #                     self.agents_steering[agentID] = 0.
+                #                     self.agents_throttle[agentID] = -1.
+                #                 else:
+                #                     self.process_input('forward', agentID)
                                 
                 if side == "right" and self.pass_top_checkpoint(front_vehicle, side):
                     self.right_cleared = True
