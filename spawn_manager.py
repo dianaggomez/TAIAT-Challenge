@@ -78,7 +78,7 @@ class SpawnManager(BaseManager):
         # random assign spawn points
         num_agents = self.num_agents if self.num_agents is not None else len(self.available_target_vehicle_configs)
         assert len(self.available_target_vehicle_configs) > 0
-
+        print("Spawn configurations", self.available_target_vehicle_configs)
         if num_agents == -1:  # Infinite number of agents
             target_agents = list(range(len(self.available_target_vehicle_configs)))
         else:
