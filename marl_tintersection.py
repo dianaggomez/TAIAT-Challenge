@@ -1,5 +1,6 @@
 import copy
 from re import S
+from tracemalloc import stop
 from metadrive.manager.spawn_manager import SpawnManager
 from metadrive.manager.map_manager import MapManager
 from metadrive.component.pgblock.first_block import FirstPGBlock
@@ -12,8 +13,7 @@ from metadrive.envs.marl_envs.multi_agent_metadrive import MultiAgentMetaDrive
 from metadrive.envs.marl_envs.tinyinter import MixedIDMAgentManager 
 from metadrive.envs import MetaDriveEnv
 from metadrive.obs.observation_base import ObservationBase
-from metadrive.utils import get_
-om, Config
+from metadrive.utils import get_np_random, Config
 from metadrive.component.vehicle.vehicle_type import SVehicle, XLVehicle
 from metadrive.policy.idm_policy import IDMPolicy
 from metadrive.policy.idm_policy import WaymoIDMPolicy
@@ -79,7 +79,7 @@ class MATIntersectionMap(PGMap):
 class MATIntersectionSpawnManager(SpawnManager):
     def update_destination_for(self, agent_id, vehicle_config):
         end_roads = copy.deepcopy(self.engine.global_config["spawn_roads"])
-        end_road = -np.random.choice(end_roads)  # Use negative road!
+        end_road = -self.np_random.choice(end_roads)  # Use negative road!
         # vehicle_config["destination_node"] = end_road.end_node
         vehicle_config["destination"] = TInterSection.node(1, 2, 1)
         return vehicle_config
@@ -106,6 +106,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
     BRAKE_INCREMENT = 0.5
     BRAKE_DECAY = 0.5
+
+    STOP_DIST = 6.0
 
     def __init__(self, config=None):
         super(MultiAgentTIntersectionEnv, self).__init__(config=config)
@@ -293,9 +295,9 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             self.agents_throttle[idx] = min(self.agents_throttle[idx], 0.)
             self.agents_throttle[idx] -= self.BRAKE_INCREMENT
 
-        rand = self.np_random.rand(2, 1) / 10000
-        # self.agents_throttle[idx] += rand[0]
-        self.agents_steering[idx] += rand[1]
+        # rand = np.random.rand(2, 1) / 10000
+        # # self.agents_throttle[idx] += rand[0]
+        # self.agents_steering[idx] += rand[1]
 
         self.agents_throttle[idx] = min(max(-1., self.agents_throttle[idx]), 1.)
         self.agents_steering[idx] = min(max(-1., self.agents_steering[idx]), 1.)
@@ -308,18 +310,34 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         left = [60., 0.] 
         right = [83.5, -3.5] 
 
-        if side == "left": # vehicle on left side
+        if side == "left":
             x_checkpoint, y_checkpoint = left
-            if ((x_checkpoint - x)> 0 and (x_checkpoint - x)<7):
+            print("x_checkpoint value ", x_checkpoint)
+            print("X value", x)
+            print("Difference = ", x_checkpoint - x)
+            print("Inside left")
+            if ((x_checkpoint - x)> self.STOP_DIST or (x_checkpoint - x) == self.STOP_DIST):
                 return True
             else:
                 return False
         else:
             x_checkpoint, y_checkpoint = right
-            if ((x_checkpoint - x)> -7 and (x_checkpoint - x)<6):
+            if ((x_checkpoint - x)> -self.STOP_DIST or (x_checkpoint - x) == -self.STOP_DIST):
                 return True
             else:
                 return False
+        # if side == "left": # vehicle on left side
+        #     x_checkpoint, y_checkpoint = left
+        #     if ((x_checkpoint - x)> 0 and (x_checkpoint - x)<self.STOP_DIST):
+        #         return True
+        #     else:
+        #         return False
+        # else:
+        #     x_checkpoint, y_checkpoint = right
+        #     if ((x_checkpoint - x)> 0 and (x_checkpoint - x)<self.STOP_DIST):
+        #         return True
+        #     else:
+        #         return False
 
     def within_box_range(self, vehicle, side, check_turn_complete = False) -> bool:
         x,y = vehicle.position
@@ -334,7 +352,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             print("X value", x)
             print("Difference = ", x_checkpoint - x)
             print("Inside left")
-            if ((x_checkpoint - x)> -12.6 and (x_checkpoint - x)<-1.5):
+            if ((x_checkpoint - x)> -13 and (x_checkpoint - x)<-2.):
                 print("Met Condition")
                 return True
             else:
@@ -342,7 +360,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         else:
             print("Inside Right")
             x_checkpoint, y_checkpoint = right
-            if ((x_checkpoint - x)> 1.5 and (x_checkpoint - x)<10): #-2.25
+            if ((x_checkpoint - x)>-12 and (x_checkpoint - x)<-2.25): #-2.25
                 return True
             else:
                 return False
@@ -423,15 +441,15 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         side = "right"
         front_of_remaining_vehicles = self.right_vehicle_queue[0]
         x_checkpoint, y_checkpoint = [83.5, -3.5] 
-        x,y = front_of_remaining_vehicles.position
-        print("Agent ID: ", self.get_agentID("right", 0))
-        print(x)
-        print(x_checkpoint)
 
         while not self.rest_should_stop:
+            x,y = front_of_remaining_vehicles.position
             print(x)
+            print(front_of_remaining_vehicles.velocity)
             print("Difference: ", (x_checkpoint - x))
-            if ((x_checkpoint - x)>0):
+            # if ((x_checkpoint - x)>-8 and (x_checkpoint - x)<-3):
+            # if ((x_checkpoint - x)> -self.STOP_DIST or (x_checkpoint - x)== -self.STOP_DIST):
+            if self.before_box_range(front_of_remaining_vehicles, "right"):
                 self.rest_should_stop = True
             for i in range(len(self.right_vehicle_queue)): # i represents position in the queue
                 # vehicle = self.right_vehicle_queue[i]
@@ -458,8 +476,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             self.render()
 
         for i in range(7):
-            actions =self.array2dict_action(np.zeros((12,2)))
-            print(actions)
+            actions =self.array2dict_action(np.hstack((np.zeros((12,1)), -1*np.ones((12,1)))))
+            print("Actions: ", actions)
             super(MultiAgentTIntersectionEnv, self).step(actions)
 
 
@@ -482,6 +500,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 vehicle = self.right_vehicle_queue[i] # initialized in generate_vehicle_queue
                 agentID = self.get_agentID(side, i)
                 if self.within_box_range(vehicle, side) or self.vehicle_is_turning(vehicle):
+                    print("Within box range: ", self.within_box_range(vehicle, side))
                     # when a vehicle reaches 1st checkpoint or is in the process of turning
                     self.process_input('turnRight', agentID)
                     # self.vehicle_take_action(vehicle, low_level_action)
