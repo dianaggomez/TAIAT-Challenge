@@ -184,7 +184,7 @@ class IDMPolicy(BasePolicy):
         self.overtake_timer = self.np_random.randint(0, self.LANE_CHANGE_FREQ)
         self.enable_lane_change = self.engine.global_config.get("enable_idm_lane_change", True)
         self.heading_pid = PIDController(1.7, 0.01, 3.5)
-        self.lateral_pid = PIDController(0.3, .002, 0.05)
+        self.lateral_pid = PIDController(0.4, 0.02, 2.2)
         # self.all_vehicles = all_vehicles
 
     # def get_surrounding_vehicles(self, all_vehicles):
