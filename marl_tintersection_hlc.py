@@ -40,6 +40,7 @@ class HighLevelControllerEnv(gym.Env):
         vehicles = environment.vehicles
         # print("Vehicles!!!! ", environment.vehicles)
         environment.generate_vehicle_queue(vehicles)
+        environment.assign_idm_policy()
         return environment
 
     def done(self, d_agents):
@@ -82,18 +83,23 @@ class HighLevelControllerEnv(gym.Env):
 if __name__ == "__main__":
     env = HighLevelControllerEnv()
     # print("Inital Queue: ", env.LowLevelControllerEnv.visualize_queue())
-    env.LowLevelControllerEnv.bring_vehicles_to_front()
+    # env.LowLevelControllerEnv.bring_vehicles_to_front()
     # print((env.observation_space).shape)
     # action = env.action_space.sample()
-    action = (1, 0)
-    print("Original High Level Action", action)
-    env.step(action)
-    action = (1,0)
-    env.step(action)
-    action = (0,1)
-    print("Original High Level Action", action)
-    env.step(action)
+    # action = (1, 0)
+    # print("Original High Level Action", action)
+    # env.step(action)
+    # # action = (1,0)
+    # # env.step(action)
     # action = (0,1)
     # print("Original High Level Action", action)
     # env.step(action)
+    # action = (0,1)
+    # print("Original High Level Action", action)
+    # env.step(action)
+    done = False
+    while not done:
+        action = env.action_space.sample()
+        print("High Level Action ", action)
+        o, done, i, r = env.step(action)        
 
