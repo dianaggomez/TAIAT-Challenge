@@ -12,7 +12,8 @@ from metadrive.envs.marl_envs.multi_agent_metadrive import MultiAgentMetaDrive
 from metadrive.envs.marl_envs.tinyinter import MixedIDMAgentManager 
 from metadrive.envs import MetaDriveEnv
 from metadrive.obs.observation_base import ObservationBase
-from metadrive.utils import get_np_random, Config
+from metadrive.utils import get_
+om, Config
 from metadrive.component.vehicle.vehicle_type import SVehicle, XLVehicle
 from metadrive.policy.idm_policy import IDMPolicy
 from metadrive.policy.idm_policy import WaymoIDMPolicy
@@ -78,7 +79,7 @@ class MATIntersectionMap(PGMap):
 class MATIntersectionSpawnManager(SpawnManager):
     def update_destination_for(self, agent_id, vehicle_config):
         end_roads = copy.deepcopy(self.engine.global_config["spawn_roads"])
-        end_road = -self.np_random.choice(end_roads)  # Use negative road!
+        end_road = -np.random.choice(end_roads)  # Use negative road!
         # vehicle_config["destination_node"] = end_road.end_node
         vehicle_config["destination"] = TInterSection.node(1, 2, 1)
         return vehicle_config
