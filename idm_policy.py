@@ -1,8 +1,6 @@
 import logging
 
 import numpy as np
-from torch import equal
-from metadrive.component import vehicle_navigation_module
 from metadrive.component.vehicle_module.PID_controller import PIDController
 from metadrive.policy.base_policy import BasePolicy
 from metadrive.policy.manual_control_policy import ManualControlPolicy
@@ -86,14 +84,6 @@ class FrontBackObjects:
         Find objects in front of/behind the lane and its left lanes/right lanes, return objs, dist.
         If ref_lanes is None, return filter results of this lane
         """
-        print(objs)
-        #box points:
-        box_position_left = [60., 0.]
-        box_position_center = [73.5, -13.499999999999996] 
-        box_position_right = [83.5, -3.5] 
-        #vehicle.position 
-
-
         if ref_lanes is not None:
             assert lane in ref_lanes
         idx = lane.index[-1] if ref_lanes is not None else None
@@ -112,7 +102,6 @@ class FrontBackObjects:
 
         current_long = [lane.local_coordinates(position)[0] if lane is not None else None for lane in lanes]
         left_long = [lane.length - current_long[idx] if lane is not None else None for idx, lane in enumerate(lanes)]
-
 
         for i, lane in enumerate(lanes):
             if lane is None:
@@ -139,8 +128,7 @@ class FrontBackObjects:
                     if min_back_long[i] > long:
                         min_back_long[i] = long
                         back_ret[i] = obj
-        print (f'Find front in current lane: {min_front_long}')
-        print (f'Find front in current lane: {min_back_long}')
+
         return cls(front_ret, back_ret, min_front_long, min_back_long)
 
 
@@ -148,8 +136,6 @@ class IDMPolicy(BasePolicy):
     """
     We implement this policy based on the HighwayEnv code base.
     """
-    LIDAR_RADIUS = 20
-
     TAU_ACC = 0.6  # [s]
     TAU_HEADING = 0.3  # [s]
     TAU_LATERAL = 0.8  # [s]
@@ -177,7 +163,7 @@ class IDMPolicy(BasePolicy):
     LANE_CHANGE_FREQ = 50  # [step]
     LANE_CHANGE_SPEED_INCREASE = 10
     SAFE_LANE_CHANGE_DISTANCE = 15
-    MAX_LONG_DIST = 20
+    MAX_LONG_DIST = 30
     MAX_SPEED = 100
 
     # Normal speed
@@ -199,12 +185,27 @@ class IDMPolicy(BasePolicy):
         self.enable_lane_change = self.engine.global_config.get("enable_idm_lane_change", True)
         self.heading_pid = PIDController(1.7, 0.01, 3.5)
         self.lateral_pid = PIDController(0.3, .002, 0.05)
+        # self.all_vehicles = all_vehicles
+
+    # def get_surrounding_vehicles(self, all_vehicles):
+    #     radius = 10
+    #     ego_lat, ego_lon = list(self.control_object.position)
+        
+    #     objs = set()
+    #     for veh in all_vehicles:
+    #         vehicle_lat, vehicle_lon = veh.posiiton
+    #         veh_id = veh.id
+    #         # check long
+    #         if np.abs(vehicle_lat - ego_lat) < radius and np.abs(vehicle_lon - ego_lon) < radius:
+    #             if veh_id != self.id:
+    #                 objs.add(veh)
+    #     return objs
 
     def act(self, *args, **kwargs):
         # concat lane
         sucess = self.move_to_next_road()
         all_objects = self.control_object.lidar.get_surrounding_objects(self.control_object)
-
+        # all_objects = self.control_object
         try:
             if sucess and self.enable_lane_change:
                 # perform lane change due to routing
@@ -217,7 +218,6 @@ class IDMPolicy(BasePolicy):
                     self.control_object.position,
                     max_distance=self.MAX_LONG_DIST
                 )
-                print(f"surrounding_objects: {surrounding_objects}")
                 acc_front_obj = surrounding_objects.front_object()
                 acc_front_dist = surrounding_objects.front_min_distance()
                 steering_target_lane = self.routing_target_lane
@@ -421,28 +421,3 @@ class WaymoIDMPolicy(IDMPolicy):
             )
             return True
         return False
-
-class idm_upgrade(IDMPolicy):
-    def __init__(self, control_object, random_seed, vehicles_all_obs):
-        super(IDMPolicy, self).__init__(control_object=control_object, random_seed=random_seed)
-        self.vehicles_all_obs = vehicles_all_obs
-    
-    def find_surrounding(self):
-        lat, lont = self.control_object.position
-        object_id = self.control_object.id
-        vehicle_in_range = set() 
-       
-        for vehicle in self.vehicles_all_obs:
-             if object_id != vehicle.id:
-                 x, y = vehicle.position
-                 if np.abs(lat - x) < LIDAR_RADIUS and np.abs(lont - y) < LIDAR_RADIUS:
-                     vehicle_in_range.add(vehicle)
-        
-        return vehicle_in_range
-    
-
-        
-
-
-
-        
