@@ -199,11 +199,13 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
     def process_high_level_action(self, high_level_action):
         # high-level actions: (0,0), (1,0), (0,1), (1,1)
-        # human :1, coatilition: 2
-        if not (self.left_queue[0] > 0):
+        # human :1, coatilition: 2, empty:0 
+        if not (len(self.left_queue) > 0):
             left = 0
-        elif not (self.right_queue[0] > 0):
+            right = self.right_queue[0]
+        elif not (len(self.right_queue) > 0):
             right = 0
+            left = self.left_queue[0]
         else:
             left = self.left_queue[0]
             right = self.right_queue[0]
@@ -679,7 +681,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                                 self.agents_steering[agentID] = 0.
                                 self.agents_throttle[agentID] = -1.
                 
-                if side == "right" and self.pass_top_checkpoint(front_right_vehicle, side):
+                if side == "right" and len(self.right_vehicle_queue) > 0 and self.pass_top_checkpoint(front_right_vehicle, side):
                     self.right_cleared = True  
                                 
 
