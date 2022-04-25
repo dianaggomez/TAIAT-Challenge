@@ -137,6 +137,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         self.right_cleared = False
         self.agents_policy = {}
         self.time = 0
+        self.done_vehicle = {} #vehicle pass the first check point
 
     @staticmethod
     def default_config() -> Config:
@@ -436,13 +437,22 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             return True
 
     def vehicle_exit_check(self, vehicle, side) -> bool:
-        if self.vehicle_is_turning:
+        if self.vehicle_is_turning(vehicle):
             # is turning means the vehicle is between 1st and 2nd checkpoint
+            if side == 'left':
+                self.done_vehicle[self.get_agentID('left',0)] = True
+            else:
+                self.done_vehicle[self.get_agentID('right',0)] = True
+
             if self.pass_top_checkpoint(vehicle, side, check_turn_complete=True):
                 return True
             else:
                 return False
         else:
+            if side == 'left':
+                self.done_vehicle[self.get_agentID('left',0)] = False
+            else:
+                self.done_vehicle[self.get_agentID('right',0)] = False
             return False
 
     def get_agentID(self, side, position):
