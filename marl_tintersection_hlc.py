@@ -41,37 +41,34 @@ class HighLevelControllerEnv(gym.Env):
         # print("Vehicles!!!! ", environment.vehicles)
         environment.generate_vehicle_queue(vehicles)
         environment.assign_idm_policy()
+        environment.bring_vehicles_to_front()
         return environment
 
-    def done(self, d_agents):
-        print("done of agents", d_agents)
-        left_array = np.array(self.LowLevelControllerEnv.orig_left_queue)
-        right_array = np.array(self.LowLevelControllerEnv.orig_right_queue)
-
-        vehicle_order = self.LowLevelControllerEnv.vehicle_order # [0,1,2,3,4,5,11,10,9,8,7,6]
-        all_vehicle_location = np.concatenate((list(left_array == 2), list(right_array == 2))) # [true, false ....]
-        AVs_index = list(compress(vehicle_order, all_vehicle_location)) # get AV index from all vehciles
-        print("Conditional ", np.array(list(d_agents.values()))[AVs_index].all())
-        if (np.array(list(d_agents.values()))[AVs_index]).all():
-            return True
-        else:
-            return False
+    def done(self):
+        print("DONE DICT: ", self.LowLevelControllerEnv._done)
+        AV_index = self.LowLevelControllerEnv.AV_index
+        return np.array(self.LowLevelControllerEnv._done)[AV_index].all()
 
     def step(self, action):
         # give high level action to MultiAgentTIntersectionEnv
         o, r, d_agents, _ = self.LowLevelControllerEnv.step(action)
         # d will have done information for each agent
-        d = self.done(d_agents)
+        d = self.done()
         print("done ", d)
         # we do not necessarily need info, it may be an empty dict
         i = {}
         # get reward
-        r = self.LowLevelControllerEnv
+        r = self.LowLevelControllerEnv.reward
 
         return o, r, d, i
 
     def reset(self):
         self.LowLevelControllerEnv.reset()
+        vehicles = self.LowLevelControllerEnv.vehicles
+        # print("Vehicles!!!! ", environment.vehicles)
+        self.LowLevelControllerEnv.generate_vehicle_queue(vehicles)
+        self.LowLevelControllerEnv.assign_idm_policy()
+        self.LowLevelControllerEnv.bring_vehicles_to_front()
 
     def render(self):
         self.LowLevelControllerEnv.render()      
@@ -85,7 +82,6 @@ class HighLevelControllerEnv(gym.Env):
 if __name__ == "__main__":
     env = HighLevelControllerEnv()
     # print("Inital Queue: ", env.LowLevelControllerEnv.visualize_queue())
-    # env.LowLevelControllerEnv.bring_vehicles_to_front()
     # print((env.observation_space).shape)
     # action = env.action_space.sample()
     # action = (1, 0)
@@ -104,4 +100,20 @@ if __name__ == "__main__":
         action = env.action_space.sample()
         print("High Level Action ", action)
         o, r, done, i = env.step(action)  
+        print("###########################################################")
+        print("Obervation: ", o)
+        print("Reward: ", r)
+        print("Timesteps", env.LowLevelControllerEnv.time)
+        print("###########################################################")
 
+    env.reset()
+    done = False
+    while done == False:
+        action = env.action_space.sample()
+        print("High Level Action ", action)
+        o, r, done, i = env.step(action)  
+        print("###########################################################")
+        print("Obervation: ", o)
+        print("Reward: ", r)
+        print("Timesteps", env.LowLevelControllerEnv.time)
+        print("###########################################################")    
