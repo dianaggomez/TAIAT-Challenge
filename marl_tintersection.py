@@ -11,12 +11,12 @@ from metadrive.component.vehicle.base_vehicle import BaseVehicle
 # from metadrive.envs.marl_envs.marl_inout_roundabout import LidarStateObservationMARound
 from metadrive.envs.marl_envs.multi_agent_metadrive import MultiAgentMetaDrive
 from metadrive.envs.marl_envs.tinyinter import MixedIDMAgentManager 
-from metadrive.envs import MetaDriveEnv
-from metadrive.obs.observation_base import ObservationBase
+# from metadrive.envs import MetaDriveEnv
+# from metadrive.obs.observation_base import ObservationBase
 from metadrive.utils import get_np_random, Config
 from metadrive.component.vehicle.vehicle_type import SVehicle, XLVehicle
-from metadrive.policy.idm_policy import IDMPolicy
-from metadrive.policy.idm_policy import WaymoIDMPolicy
+from metadrive.policy.idm_policy import IDMPolicy #, IDMPolicy2
+# from metadrive.policy.idm_policy import WaymoIDMPolicy
 import numpy as np
 from collections import deque
 import random
@@ -127,7 +127,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         self.agents_steering = np.zeros((12,1)) # idx corresponds to agentID
         self.agents_throttle = np.zeros((12,1))
         self.left_queue, self.right_queue = self.generate_queue()
-        self.orig_left_queue, self.orig_right_queue = self.left_queue, self.right_queue
+        self.orig_left_queue, self.orig_right_queue = self.left_queue.copy(), self.right_queue.copy()
         self.left_vehicle_queue = deque([])
         self.right_vehicle_queue = deque([])
         self.rest_should_stop = False
@@ -137,7 +137,9 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         self.right_cleared = False
         self.agents_policy = {}
         self.time = 0
-        self.done_vehicle = {} #vehicle pass the first check point
+        self._done = [False] * 12 #track agents done after first checkpoint - you may use 
+        self.AV_index, self.human_index = self.gather_indexes()
+        self.one_and_one = [0,0]
 
     @staticmethod
     def default_config() -> Config:
@@ -160,13 +162,13 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         return self.agent_manager.filter_RL_agents(org)
     #################################################################################
     def generate_queue(self):
-        # queue = [1]*6 + [2]*6
+        queue = [1]*6 + [2]*6
         # random.seed(13)
-        # random.shuffle(queue)
-        # left_queue = deque(queue[:len(queue)//2])
-        # right_queue = deque(queue[len(queue)//2:])
-        left_queue = deque([2, 2, 2, 2, 1, 2])
-        right_queue = deque([2, 2, 1, 2, 1, 1])
+        random.shuffle(queue)
+        left_queue = deque(queue[:len(queue)//2])
+        right_queue = deque(queue[len(queue)//2:])
+        # left_queue = deque([2, 2, 2, 2, 1, 2])
+        # right_queue = deque([2, 2, 1, 2, 1, 1])
         return left_queue, right_queue
     
     # generate the queue above but with vehicles objects 
@@ -175,7 +177,18 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         all_vehicles.reverse()
         self.left_vehicle_queue = deque([v for v in all_vehicles[6:]]) # 5 ~ 0 (front of queue at index 0)
         self.right_vehicle_queue = deque([v for v in all_vehicles[:6]]) # 11 ~ 6
-    
+   
+    def gather_indexes(self):
+        left_array = np.array(self.orig_left_queue)
+        right_array = np.array(self.orig_right_queue)
+        AV_index = list(right_array == 2) + list(left_array == 2) # [true, false ....]
+        AV_index.reverse()
+        human_index = list(right_array == 1) + list(left_array == 1) # [true, false ....]
+        human_index.reverse()
+        print("AVS: ", AV_index)
+        print("HUMANS: ", human_index)
+        return AV_index, human_index
+
     def visualize_queue(self):
         string = "|"
         lq = self.left_queue.copy()
@@ -196,7 +209,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             vehicle = self.right_vehicle_queue[i]
             agentID = self.get_agentID("right", i)
             self.agents_policy[agentID] = IDMPolicy(vehicle,random.seed(0))
-        print(self.agents_policy)
+        # print(self.agents_policy)
 
     def process_high_level_action(self, high_level_action):
         # high-level actions: (0,0), (1,0), (0,1), (1,1)
@@ -280,8 +293,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
     def num_of_vehicles_to_exit(self, high_level_action):
         # check the side of the queue with go, up to 3 vehicles may exit
-        print(self.left_queue)
-        print(self.right_queue)
+        # print(self.left_queue)
+        # print(self.right_queue)
         counter = 0
         if high_level_action == (0,1):
             if len(self.right_queue) > 0:
@@ -364,10 +377,10 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         if side == "left":
             x_checkpoint, y_checkpoint = left
-            print("x_checkpoint value ", x_checkpoint)
-            print("X value", x)
-            print("Difference = ", x_checkpoint - x)
-            print("Inside left")
+            # print("x_checkpoint value ", x_checkpoint)
+            # print("X value", x)
+            # print("Difference = ", x_checkpoint - x)
+            # print("Inside left")
             if ((x_checkpoint - x)< self.STOP_DIST or (x_checkpoint - x) == self.STOP_DIST):
                 return True
             else:
@@ -388,10 +401,10 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         if side == "left": # vehicle on left side
             x_checkpoint, y_checkpoint = left
-            print("x_checkpoint value ", x_checkpoint)
-            print("X value", x)
-            print("Difference = ", x_checkpoint - x)
-            print("Inside left")
+            # print("x_checkpoint value ", x_checkpoint)
+            # print("X value", x)
+            # print("Difference = ", x_checkpoint - x)
+            # print("Inside left")
             if ((x_checkpoint - x)==8 or (x_checkpoint - x)<8):
                 print("Met Condition")
                 return True
@@ -432,27 +445,22 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         x,y = vehicle.position
 
         if ((left[0] <= x <= top[0]) or (top[0] <= x <= right[0])) and (left[1] <= y <= top[1]):
-            print("Left condition: ", left[0] <= x <= top[0])
-            print("Right condition: ", (top[0] <= x <= right[0]))
+            # print("Left condition: ", left[0] <= x <= top[0])
+            # print("Right condition: ", (top[0] <= x <= right[0]))
             return True
 
     def vehicle_exit_check(self, vehicle, side) -> bool:
-        if self.vehicle_is_turning(vehicle):
+        if self.vehicle_is_turning:
+            agent_ID = self.get_agentID(side,0)
             # is turning means the vehicle is between 1st and 2nd checkpoint
-            if side == 'left':
-                self.done_vehicle[self.get_agentID('left',0)] = True
-            else:
-                self.done_vehicle[self.get_agentID('right',0)] = True
-
             if self.pass_top_checkpoint(vehicle, side, check_turn_complete=True):
+                self._done[agent_ID] = True
                 return True
             else:
+                self._done[agent_ID] = False
                 return False
         else:
-            if side == 'left':
-                self.done_vehicle[self.get_agentID('left',0)] = False
-            else:
-                self.done_vehicle[self.get_agentID('right',0)] = False
+            self._done[agent_ID] = False
             return False
 
     def get_agentID(self, side, position):
@@ -493,9 +501,9 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
 
         while not self.rest_should_stop:
             x,y = front_of_remaining_vehicles.position
-            print(x)
-            print(front_of_remaining_vehicles.velocity)
-            print("Difference: ", (x_checkpoint - x))
+            # print(x)
+            # print(front_of_remaining_vehicles.velocity)
+            # print("Difference: ", (x_checkpoint - x))
             # if ((x_checkpoint - x)>-8 and (x_checkpoint - x)<-3):
             # if ((x_checkpoint - x)> -self.STOP_DIST or (x_checkpoint - x)== -self.STOP_DIST):
             if self.before_box_range(front_of_remaining_vehicles, "right"):
@@ -518,15 +526,12 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             current_actions = np.hstack((self.agents_steering, self.agents_throttle))
 
             current_actions = self.array2dict_action(current_actions)
-            # print("\n")
-            # print(current_actions)
-            # print("\n")
             super(MultiAgentTIntersectionEnv, self).step(current_actions)
-            self.render()
+            # self.render()
 
         for i in range(7):
             actions =self.array2dict_action(np.hstack((np.zeros((12,1)), -1*np.ones((12,1)))))
-            print("Actions: ", actions)
+            # print("Actions: ", actions)
             super(MultiAgentTIntersectionEnv, self).step(actions)
 
 
@@ -539,7 +544,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             vehicles_to_exit[1] = len(self.right_vehicle_queue)
 
         # first we check the high_level actions
-        print("Processed High Level Acrtion", high_level_action)
+        print("Processed High Level Action", high_level_action)
         ################################# RIGHT ONLY #################################
         if high_level_action == (0,1):
             side = "right"
@@ -547,7 +552,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 agentID = self.get_agentID(side, i)
                 action = self.agents_policy[agentID].act(agentID)
                 self.agents_steering[agentID], self.agents_throttle[agentID] = action
-                    # if self.within_box_range(vehicle, side):
 
             # 2. assign actions for the rest of vehicles on this side
             if len(self.right_vehicle_queue) > vehicles_to_exit[1]:
@@ -556,7 +560,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 if self.before_box_range(front_of_remaining_vehicles, side):
                     self.agents_steering[frv_agentID] = 0
                     self.agents_throttle[frv_agentID] = -1
-                    # self.rest_should_stop = True
                 else:
                     action = self.agents_policy[frv_agentID].act(frv_agentID)
                     self.agents_steering[frv_agentID], self.agents_throttle[frv_agentID] = action
@@ -576,10 +579,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     if self.rest_should_stop:
                         self.agents_steering[agentID] = 0.
                         self.agents_throttle[agentID] = -1.
-                        # self.rest_should_stop = False
                     else:
                         action = self.agents_policy[agentID].act(agentID)
-                        print("Action from IDM ", action)
                         self.agents_steering[agentID], self.agents_throttle[agentID] = action
             
             # 3. assign actions for vehicles on the opposite side
@@ -598,8 +599,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     agentID = self.get_agentID('left', i)
                     action = self.agents_policy[agentID].act(agentID)
                     self.agents_steering[agentID], self.agents_throttle[agentID] = action
-                    # self.agents_steering[agentID] = 0.
-                    # self.agents_throttle[agentID] = -1.
         
         ################################# LEFT ONLY #################################
         elif high_level_action == (1,0):
@@ -616,7 +615,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 if self.before_box_range(front_of_remaining_vehicles, side):
                     self.agents_steering[frv_agentID] = 0
                     self.agents_throttle[frv_agentID] = -1
-                    # self.rest_should_stop = True
                 else:
                     action = self.agents_policy[frv_agentID].act(frv_agentID)
                     self.agents_steering[frv_agentID], self.agents_throttle[frv_agentID] = action
@@ -627,10 +625,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     if self.rest_should_stop:
                         self.agents_steering[agentID] = 0.
                         self.agents_throttle[agentID] = -1.
-                        # self.rest_should_stop = False
                     else:
                         action = self.agents_policy[agentID].act(agentID)
-                        print("Action from IDM ", action)
                         self.agents_steering[agentID], self.agents_throttle[agentID] = action
             
             # 3. assign actions for vehicles on the opposite side
@@ -640,7 +636,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 if self.before_box_range(opposite_front_vehicle, 'right'):
                     self.agents_steering[ofv_agentID] = 0
                     self.agents_throttle[ofv_agentID] = -1
-                    # self.rest_should_stop = True
                 else:
                     action = self.agents_policy[ofv_agentID].act(ofv_agentID)
                     self.agents_steering[ofv_agentID], self.agents_throttle[ofv_agentID] = action
@@ -649,9 +644,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                     agentID = self.get_agentID('right', i)
                     action = self.agents_policy[agentID].act(agentID)
                     self.agents_steering[agentID], self.agents_throttle[agentID] = action
-                    # self.agents_steering[agentID] = 0.
-                    # self.agents_throttle[agentID] = -1.
-
                 
         ################################# BOTH SIDES #################################
         else:
@@ -673,7 +665,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                             if self.before_box_range(front_of_remaining_vehicles, side):
                                 self.agents_steering[frv_agentID] = 0
                                 self.agents_throttle[frv_agentID] = -1
-                                # self.rest_should_stop = True
                             else:
                                 action = self.agents_policy[frv_agentID].act(frv_agentID)
                                 self.agents_steering[frv_agentID], self.agents_throttle[frv_agentID] = action
@@ -684,10 +675,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                                 if self.rest_should_stop:
                                     self.agents_steering[agentID] = 0.
                                     self.agents_throttle[agentID] = -1.
-                                    # self.rest_should_stop = False
                                 else:
                                     action = self.agents_policy[agentID].act(agentID)
-                                    print("Action from IDM ", action)
                                     self.agents_steering[agentID], self.agents_throttle[agentID] = action
                             
                         # assign actions for vehicles on the opposite side
@@ -705,11 +694,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                                 agentID = self.get_agentID('left', i)
                                 action = self.agents_policy[agentID].act(agentID)
                                 self.agents_steering[agentID], self.agents_throttle[agentID] = action
-                        # for k in range(len(self.left_vehicle_queue)):
-                        #     agentID = self.get_agentID('left', k)
-                        #     self.agents_steering[agentID] = 0.
-                        #     self.agents_throttle[agentID] = -1.
-
                 else:
                     ######## USING IDM ########
                     #left
@@ -734,7 +718,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                                 if self.before_box_range(front_of_remaining_vehicles, side):
                                     self.agents_steering[frv_agentID] = 0
                                     self.agents_throttle[frv_agentID] = -1
-                                    # self.rest_should_stop = True
                                 else:
                                     action = self.agents_policy[frv_agentID].act(frv_agentID)
                                     self.agents_steering[frv_agentID], self.agents_throttle[frv_agentID] = action
@@ -745,10 +728,8 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                                     if self.rest_should_stop:
                                         self.agents_steering[agentID] = 0.
                                         self.agents_throttle[agentID] = -1.
-                                        # self.rest_should_stop = False
                                     else:
                                         action = self.agents_policy[agentID].act(agentID)
-                                        print("Action from IDM ", action)
                                         self.agents_steering[agentID], self.agents_throttle[agentID] = action
                                 
                             # assign actions for vehicles on the opposite side
@@ -766,10 +747,6 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                                     agentID = self.get_agentID('right', i)
                                     action = self.agents_policy[agentID].act(agentID)
                                     self.agents_steering[agentID], self.agents_throttle[agentID] = action
-                            # for k in range(len(self.right_vehicle_queue)):
-                            #     agentID = self.get_agentID('right', k)
-                            #     self.agents_steering[agentID] = 0.
-                            #     self.agents_throttle[agentID] = -1.
                 
                 if side == "right" and len(self.right_vehicle_queue) > 0 and self.pass_top_checkpoint(front_right_vehicle, side):
                     self.right_cleared = True  
@@ -779,15 +756,17 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         if len(self.left_vehicle_queue) > 0 and self.vehicle_exit_check(self.left_vehicle_queue[0], "left"):
             self.exited_agentID.append(self.get_agentID('left',0))
             self.left_vehicle_queue.remove(self.left_vehicle_queue[0]) # remove first vehicle in queue
-            self.left_queue.popleft()
+            v = self.left_queue.popleft()
             exited += np.array([1,0])
+            self.one_and_one[0] = v
         if len(self.right_vehicle_queue) > 0 and self.vehicle_exit_check(self.right_vehicle_queue[0], "right"):
             self.exited_agentID.append(self.get_agentID('right',0))
-            print("Vehicle to be popped off:", self.right_vehicle_queue[0])
+            # print("Vehicle to be popped off:", self.right_vehicle_queue[0])
             self.right_vehicle_queue.remove(self.right_vehicle_queue[0]) # remove first vehicle in queue
-            print(self.exited_agentID)
+            # print(self.exited_agentID)
             v = self.right_queue.popleft()
-            print("This is the vehicle that was popped: ", v)
+            self.one_and_one[1] = v
+            # print("This is the vehicle that was popped: ", v)
             exited += np.array([0,1])
             
     
@@ -799,25 +778,18 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         current_actions = np.hstack((self.agents_steering, self.agents_throttle))
         assert current_actions.shape == (12,2)
         current_actions = self.array2dict_action(current_actions)
-        print("Current Actions: ", current_actions)
+        # print("Current Actions: ", current_actions)
         return exited, current_actions
 
-    def coalition_exit_check(self, done, coalition_index) -> bool:
-        for idx in coalition_index:
-            if done['agent{n}'.format(n=idx)] != True:
-                return False
-        return True
+    def coalition_exit_check(self, coalition_index) -> bool:
+        return np.array(self._done)[coalition_index].all()
 
-    def _get_reward(self, high_level_action, num_of_vehicles, done, fairness = False):
-        all_vehicle_location = np.concatenate((np.array(self.orig_left_queue) == 2, np.array(self.orig_right_queue) == 2)) # [true, false ....]
-        AV_index = list(compress(self.vehicle_order, all_vehicle_location)) # get AV index from all vehciles
-        all_vehicle_location_false = np.concatenate((np.array(self.orig_left_queue) == 1, np.array(self.orig_left_queue) == 1))
-        human_index = list(compress(self.vehicle_order, all_vehicle_location_false))
+    def _get_reward(self, high_level_action, num_of_vehicles, fairness = True):
 
         # Reward
-        if self.coalition_exit_check(done, human_index): # r = -2, if human drivers exit first
+        if self.coalition_exit_check(self.human_index): # r = -2, if human drivers exit first
             r = -2
-        elif self.coalition_exit_check(done, AV_index): # r = +1, if AVs exit first
+        elif self.coalition_exit_check(self.AV_index) and not self.coalition_exit_check(self.human_index): # r = +1, if AVs exit first
             r = 1
         else: # r = -1 for each high level decision
             r = -1
@@ -835,12 +807,18 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
                 v_pi = num_of_vehicles[0]
             else:
                 # need to check if the vehicles that exited belong to the coaltion or human drivers
-                pass
+                print("ONE and ONE: ", self.one_and_one)
+                v_pi = sum(np.array(self.one_and_one) == 2)
+
+                if v_pi == 0:
+                    v_pi = 0.75
+
             r_f = (N_SR/N) * (1/v_pi)
         else:
             r_f = 0
 
-        reward = r + r_f
+        # print("Fairness Reward: ", r_f)
+        reward = r - r_f
         return reward
 
     def step(self, actions):
@@ -859,13 +837,15 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
             o, r, d, i = super(MultiAgentTIntersectionEnv, self).step(actions)
             self.render()
         else:
-            print('Need to exit', num_of_vehicles)
-            print('exited', exited)
+            # print('Need to exit', num_of_vehicles)
+            # print('exited', exited)
+            print("left_vehicle_queue", self.left_queue)
+            print("right_vehicle_queue", self.right_queue)
             while (exited != num_of_vehicles).any(): 
                 counter +=1
-                print("Lower Level Step Counter: ", counter)
-                print("left", self.left_queue)
-                print("right", self.right_queue)
+                # print("Lower Level Step Counter: ", counter)
+                # print("left", self.left_queue)
+                # print("right", self.right_queue)
                 # print("left_vehicle_queue", self.left_vehicle_queue)
                 # print("right_vehicle_queue", self.right_vehicle_queue)
                 exited, actions = self.take_step(high_level_action, exited, num_of_vehicles)
@@ -881,15 +861,23 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         # Output as numpy array
         # If agent exists, or dies, output [0,0,coalition]
         obs = []
+        current_obs = []
+        # use Av index and human index to assign coalition
+        coalitions = list(self.orig_right_queue) + list(self.orig_left_queue)
+        coalitions.reverse()
         for num in self.vehicle_order:
             if 'agent{n}'.format(n=num) in o:
-                obs.append(o['agent{n}'.format(n=num)])
+                current_obs = o['agent{n}'.format(n=num)]
+                current_obs[-1] = coalitions[num]
+                # obs.append(o['agent{n}'.format(n=num)])
+                obs.append(current_obs)
             else:
-                obs.append([0,0, coalition['agent{n}'.format(n=num)]])
+                # obs.append([0,0, coalition['agent{n}'.format(n=num)]])
+                obs.append([0,0, coalitions[num]])
                 d['agent{n}'.format(n=num)] = True 
         o = np.array(obs)
 
-        self.reward = self._get_reward(high_level_action, num_of_vehicles, d)
+        self.reward = self._get_reward(high_level_action, num_of_vehicles)
 
         return o, r, d, i
 
@@ -897,7 +885,24 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
     
     def reset(self):
         super(MultiAgentTIntersectionEnv, self).reset()
+        self.agents_steering = np.zeros((12,1)) # idx corresponds to agentID
+        self.agents_throttle = np.zeros((12,1))
+        self.left_queue, self.right_queue = self.generate_queue()
+        self.orig_left_queue, self.orig_right_queue = self.left_queue.copy(), self.right_queue.copy()
+        self.left_vehicle_queue = deque([])
+        self.right_vehicle_queue = deque([])
+        self.rest_should_stop = False
+        self.action_offset = 5 # offset 5 steps
+        self.exited_agentID = []
+        self.reward = 0
+        self.right_cleared = False
+        self.agents_policy = {}
+        self.time = 0
+        self._done = [False] * 12 #track agents done after first checkpoint - you may use 
+        self.AV_index, self.human_index = self.gather_indexes()
+        self.one_and_one = [0,0]
         # self.__init__()
+
     
 
 
