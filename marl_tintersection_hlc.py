@@ -6,8 +6,9 @@ from metadrive.envs.marl_envs.marl_tintersection import MultiAgentTIntersectionE
 from itertools import compress 
 
 class HighLevelControllerEnv(gym.Env):
-    def __init__(self):
-        self.action_space = spaces.Tuple((spaces.Discrete(2), spaces.Discrete(2))) # Ask Peide: Does this have to be a numpy array?
+    def __init__(self,config=None):
+        # self.action_space = spaces.Tuple((spaces.Discrete(2), spaces.Discrete(2))) # Ask Peide: Does this have to be a numpy array?
+        self.action_space = spaces.MultiBinary(2)
         self.observation_space = spaces.Box(low = -100, high = 100, shape= (12,3), dtype = np.float16) # needs to be size = (12,3) numpy array or maybe a tuple
         self.LowLevelControllerEnv = self.initialize_LowLevelControllerEnv()
 
@@ -50,6 +51,7 @@ class HighLevelControllerEnv(gym.Env):
         return np.array(self.LowLevelControllerEnv._done)[AV_index].all()
 
     def step(self, action):
+        action = (action[0], action[1]) # convert numpy array to tuple
         # give high level action to MultiAgentTIntersectionEnv
         o, r, d_agents, _ = self.LowLevelControllerEnv.step(action)
         # d will have done information for each agent

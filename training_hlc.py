@@ -1,3 +1,4 @@
+import metadrive
 import gym
 
 from stable_baselines.common.policies import MlpPolicy
@@ -5,7 +6,7 @@ from stable_baselines.common import make_vec_env
 from stable_baselines import PPO2
 
 # multiprocess environment
-env = make_vec_env("MARLIntersectionHLC-v0")
+env = gym.make("MARLIntersectionHLC")
 
 model = PPO2(MlpPolicy, env, verbose=1)
 model.learn(total_timesteps=25000)
