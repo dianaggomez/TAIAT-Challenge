@@ -11,6 +11,13 @@ class HighLevelControllerEnv(gym.Env):
         self.action_space = spaces.MultiBinary(2)
         self.observation_space = spaces.Box(low = -100, high = 100, shape= (12,3), dtype = np.float16) # needs to be size = (12,3) numpy array or maybe a tuple
         self.LowLevelControllerEnv = self.initialize_LowLevelControllerEnv()
+        self.queue = ''
+        self.time = 0
+        self.AVs_done = False
+        self.Humans_done = False
+        self.AVs_time = 0
+        self.Humans_time = 0
+        self.queue = self.LowLevelControllerEnv.queue_config
 
     def initialize_LowLevelControllerEnv(self):
         config = {
@@ -28,7 +35,7 @@ class HighLevelControllerEnv(gym.Env):
             #     "vehicle_model": "default",  "spawn_lane_index": (FirstPGBlock.NODE_2, FirstPGBlock.NODE_3, 1), 
             # },
             #
-            "use_render": True,
+            "use_render": False,
             "debug": False,
             "allow_respawn": False,
             "manual_control": True,
@@ -45,10 +52,26 @@ class HighLevelControllerEnv(gym.Env):
         environment.bring_vehicles_to_front()
         return environment
 
+    # DONE FUNCTION FOR TIME DATA 
     def done(self):
-        print("DONE DICT: ", self.LowLevelControllerEnv._done)
+        self.time += self.LowLevelControllerEnv.time
+        # print("DONE DICT: ", self.LowLevelControllerEnv._done)
         AV_index = self.LowLevelControllerEnv.AV_index
-        return np.array(self.LowLevelControllerEnv._done)[AV_index].all()
+        Human_index = self.LowLevelControllerEnv.human_index
+        # return np.array(self.LowLevelControllerEnv._done)[AV_index].all()
+        if np.array(self.LowLevelControllerEnv._done)[AV_index].all() and not self.AVs_done:
+            self.AVs_time = self.time
+            self.AVs_done = True
+        if np.array(self.LowLevelControllerEnv._done)[Human_index].all() and not self.Humans_done:
+            self.Humans_time = self.time
+            self.Humans_done = True
+        return np.array(self.LowLevelControllerEnv._done).all()
+    
+    # DONE FUNCTION FOR TRAINING
+    # def done(self):
+    #     # print("DONE DICT: ", self.LowLevelControllerEnv._done)
+    #     AV_index = self.LowLevelControllerEnv.AV_index
+    #     return  np.array(self.LowLevelControllerEnv._done)[AV_index].all()
 
     def step(self, action):
         action = (action[0], action[1]) # convert numpy array to tuple
@@ -56,7 +79,7 @@ class HighLevelControllerEnv(gym.Env):
         o, r, d_agents, _ = self.LowLevelControllerEnv.step(action)
         # d will have done information for each agent
         d = self.done()
-        print("done ", d)
+        # print("done ", d)
         # we do not necessarily need info, it may be an empty dict
         i = {}
         # get reward
@@ -65,12 +88,20 @@ class HighLevelControllerEnv(gym.Env):
         return o, r, d, i
 
     def reset(self):
-        self.LowLevelControllerEnv.reset()
+        obs = self.LowLevelControllerEnv.reset()
         vehicles = self.LowLevelControllerEnv.vehicles
         # print("Vehicles!!!! ", environment.vehicles)
         self.LowLevelControllerEnv.generate_vehicle_queue(vehicles)
         self.LowLevelControllerEnv.assign_idm_policy()
         self.LowLevelControllerEnv.bring_vehicles_to_front()
+        self.queue = str(list(self.LowLevelControllerEnv.left_queue) + list(self.LowLevelControllerEnv.right_queue))
+        self.time = 0
+        self.AVs_done = False
+        self.Humans_done = False
+        self.AVs_time = 0
+        self.Humans_time = 0
+        self.queue_config = self.LowLevelControllerEnv.queue_config
+        return obs
 
     def render(self):
         self.LowLevelControllerEnv.render()      
