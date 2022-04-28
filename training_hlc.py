@@ -9,11 +9,11 @@ from stable_baselines import PPO2
 #environment
 env = gym.make("MARLIntersectionHLC-v0")
 
-model = PPO2(MlpPolicy, env, verbose=1)
-model.learn(total_timesteps=25000)
-model.save("ppo2_hlc_reward_changed")
+# model = PPO2(MlpPolicy, env, verbose=1)
+# model.learn(total_timesteps=25000)
+# model.save("ppo2_hlc_reward_changed")
 
-del model # remove to demonstrate saving and loading
+# del model # remove to demonstrate saving and loading
 
 model = PPO2.load("ppo2_hlc_reward_changed")
 
@@ -29,11 +29,12 @@ for i in range(2000):
     if dones:
         # save the data dic: {queue: [AV_time, Human_time, max(AV_time, Human_time)]}
         queue = env.queue
-        print("Queue: ",queue)
-        time_to_exit[queue] = [env.AVs_time*time_step, env.Humans_time*time_step, max(env.AVs_time, env.Humans_time)*time_step]
+        queue_config = env.queue_config
+        # print("Queue: ",queue)
+        time_to_exit[queue] = [queue_config, env.AVs_time*time_step, env.Humans_time*time_step, max(env.AVs_time, env.Humans_time)*time_step]
         obs = env.reset()
 print("number of queues recorded: ", len(time_to_exit))
-np.save("time_data_6", time_to_exit)
+np.save("time_data_567", time_to_exit)
 
 env.reset()
 done = False
