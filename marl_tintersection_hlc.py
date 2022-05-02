@@ -52,26 +52,26 @@ class HighLevelControllerEnv(gym.Env):
         environment.bring_vehicles_to_front()
         return environment
 
-    # DONE FUNCTION FOR TIME DATA 
-    def done(self):
-        self.time += self.LowLevelControllerEnv.time
-        # print("DONE DICT: ", self.LowLevelControllerEnv._done)
-        AV_index = self.LowLevelControllerEnv.AV_index
-        Human_index = self.LowLevelControllerEnv.human_index
-        # return np.array(self.LowLevelControllerEnv._done)[AV_index].all()
-        if np.array(self.LowLevelControllerEnv._done)[AV_index].all() and not self.AVs_done:
-            self.AVs_time = self.time
-            self.AVs_done = True
-        if np.array(self.LowLevelControllerEnv._done)[Human_index].all() and not self.Humans_done:
-            self.Humans_time = self.time
-            self.Humans_done = True
-        return np.array(self.LowLevelControllerEnv._done).all()
-    
-    # DONE FUNCTION FOR TRAINING
+    # # DONE FUNCTION FOR TIME DATA 
     # def done(self):
+    #     self.time += self.LowLevelControllerEnv.time
     #     # print("DONE DICT: ", self.LowLevelControllerEnv._done)
     #     AV_index = self.LowLevelControllerEnv.AV_index
-    #     return  np.array(self.LowLevelControllerEnv._done)[AV_index].all()
+    #     Human_index = self.LowLevelControllerEnv.human_index
+    #     # return np.array(self.LowLevelControllerEnv._done)[AV_index].all()
+    #     if np.array(self.LowLevelControllerEnv._done)[AV_index].all() and not self.AVs_done:
+    #         self.AVs_time = self.time
+    #         self.AVs_done = True
+    #     if np.array(self.LowLevelControllerEnv._done)[Human_index].all() and not self.Humans_done:
+    #         self.Humans_time = self.time
+    #         self.Humans_done = True
+    #     return np.array(self.LowLevelControllerEnv._done).all()
+    
+    # DONE FUNCTION FOR TRAINING
+    def done(self):
+        # print("DONE DICT: ", self.LowLevelControllerEnv._done)
+        AV_index = self.LowLevelControllerEnv.AV_index
+        return  np.array(self.LowLevelControllerEnv._done)[AV_index].all()
 
     def step(self, action):
         action = (action[0], action[1]) # convert numpy array to tuple
