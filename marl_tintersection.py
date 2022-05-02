@@ -163,7 +163,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         return self.agent_manager.filter_RL_agents(org)
     #################################################################################
     def generate_queue(self):
-        ratio = np.random.choice([5, 6, 7])
+        ratio = np.random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], p = [0.00328317, 0.01805746,  0.06019152,  0.07989056, 0.21504788, 0.24705882, 0.21504788, 0.07989056, 0.06019152, 0.01805746, 0.00328317])
         self.queue_config = ratio
         queue = [1]*(12-ratio) + [2]*ratio
         # random.seed(13)
@@ -786,7 +786,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
     def coalition_exit_check(self, coalition_index) -> bool:
         return np.array(self._done)[coalition_index].all()
 
-    def _get_reward(self, high_level_action, num_of_vehicles, fairness = True):
+    def _get_reward(self, high_level_action, num_of_vehicles, fairness = False):
 
         # Reward
         if self.coalition_exit_check(self.human_index): # r = -2, if human drivers exit first
@@ -798,7 +798,7 @@ class MultiAgentTIntersectionEnv(MultiAgentMetaDrive):
         
         # Reward Shaping: Fairness Reward
         if fairness:
-            N_SR = 6
+            N_SR = 12 - self.queue_config
             N = 12
             # v_pi: the no. of vehicles exiting from the AV coalition at each high_level_decision
             if high_level_action == (0,0):
